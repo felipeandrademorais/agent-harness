@@ -19,6 +19,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from harness.agents.base import AgentConfig, AgentResponse
 from harness.agents.graph import build_harness_graph
 from harness.agents.tools_adapter import create_mcp_tool, create_skill_tool
+from harness.core.exceptions import BOUNDARY_ERRORS
 from harness.providers.chat_model import LiteLLMChatModel
 
 if TYPE_CHECKING:
@@ -129,7 +130,7 @@ class SpawnedAgent:
                 metadata={"latency_ms": latency_ms},
             )
 
-        except Exception as exc:
+        except BOUNDARY_ERRORS as exc:
             log.error(
                 "spawned_agent_error",
                 agent=self.config.name,

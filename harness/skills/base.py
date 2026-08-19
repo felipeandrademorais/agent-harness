@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 if TYPE_CHECKING:
     from harness.providers.llm_provider import LLMProvider
@@ -85,7 +85,7 @@ class BaseSkill(ABC):
     requires_mcp: bool = False
 
     # List of MCP tool names this skill uses (for documentation)
-    mcp_tools: list[str] = []
+    mcp_tools: ClassVar[list[str]] = []
 
     def __init__(self) -> None:
         """Initialize the skill. Override in subclasses if needed."""

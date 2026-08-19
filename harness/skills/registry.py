@@ -27,6 +27,7 @@ from typing import Any
 import structlog
 import yaml
 
+from harness.core.exceptions import BOUNDARY_ERRORS
 from harness.skills.base import BaseSkill
 
 log = structlog.get_logger(__name__)
@@ -131,7 +132,7 @@ class SkillRegistry:
                 skill = self._load_skill_class(class_path)
                 self.register(skill)
                 loaded_count += 1
-            except Exception as exc:
+            except BOUNDARY_ERRORS as exc:
                 log.error(
                     "skill_load_failed",
                     name=skill_name,
@@ -215,7 +216,7 @@ class SkillRegistry:
                 try:
                     count = self._load_skills_from_file(skill_file)
                     loaded_count += count
-                except Exception as exc:
+                except BOUNDARY_ERRORS as exc:
                     log.error(
                         "external_skill_load_failed",
                         file=str(skill_file),
@@ -263,7 +264,7 @@ class SkillRegistry:
                         name=skill.name,
                         file=str(file_path),
                     )
-                except Exception as exc:
+                except BOUNDARY_ERRORS as exc:
                     log.error(
                         "external_skill_instantiation_failed",
                         class_name=name,

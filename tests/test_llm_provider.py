@@ -168,10 +168,12 @@ async def test_complete_handles_malformed_tool_call_arguments():
 async def test_complete_raises_llm_provider_error_on_exception():
     provider = LLMProvider(model="ollama_chat/llama3.1")
 
-    with patch(
-        "litellm.acompletion",
-        new_callable=AsyncMock,
-        side_effect=RuntimeError("connection refused"),
+    with (
+        patch(
+            "litellm.acompletion",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("connection refused"),
+        ),
+        pytest.raises(LLMProviderError, match="connection refused"),
     ):
-        with pytest.raises(LLMProviderError, match="connection refused"):
-            await provider.complete([{"role": "user", "content": "hi"}])
+        await provider.complete([{"role": "user", "content": "hi"}])

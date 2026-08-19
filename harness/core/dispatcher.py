@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Protocol
 import structlog
 
 from harness.channels.base import BaseChannel, IncomingMessage
+from harness.core.exceptions import BOUNDARY_ERRORS
 
 if TYPE_CHECKING:
     from harness.memory.repository import ConversationRepository
@@ -84,12 +85,11 @@ class Dispatcher:
         except TimeoutError:
             log.warning("dispatcher_timeout", user_id=message.user_id)
             response = _TIMEOUT_MESSAGE
-        except Exception as exc:
-            log.error(
+        except BOUNDARY_ERRORS as exc:
+            log.exception(
                 "dispatcher_error",
                 user_id=message.user_id,
                 error=str(exc),
-                exc_info=True,
             )
             response = _ERROR_MESSAGE
 

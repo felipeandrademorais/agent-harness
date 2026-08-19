@@ -26,6 +26,7 @@ from rich.console import Console
 from rich.table import Table
 
 from harness.config import ConfigManager, get_harness_home
+from harness.core.exceptions import BOUNDARY_ERRORS
 
 console = Console()
 
@@ -47,7 +48,7 @@ class HealthCheck:
         """Run the health check."""
         try:
             self.passed, self.details = self.check_fn()
-        except Exception as e:
+        except BOUNDARY_ERRORS as e:
             self.passed = False
             self.details = f"Error: {e}"
 
@@ -75,7 +76,7 @@ def _check_config_file() -> tuple[bool, str]:
     try:
         config = manager.load()
         return True, f"Loaded ({config.env} mode)"
-    except Exception as e:
+    except BOUNDARY_ERRORS as e:
         return False, f"Invalid: {e}"
 
 
@@ -117,7 +118,7 @@ def _check_database() -> tuple[bool, str]:
                 conn = await asyncpg.connect(dsn=db_url, timeout=5)
                 await conn.close()
                 return True
-            except Exception:
+            except (OSError, TimeoutError, ConnectionError, ValueError, RuntimeError):
                 return False
 
         reachable = asyncio.run(_ping())
@@ -129,8 +130,7 @@ def _check_database() -> tuple[bool, str]:
             else:
                 display_url = db_url
             return True, f"Connected to {display_url}"
-        else:
-            return False, "Connection failed"
+        return False, "Connection failed"
 
     except ImportError:
         return False, "asyncpg not installed"
@@ -162,7 +162,7 @@ def _check_ollama() -> tuple[bool, str]:
                 f"{model_name} not found. Available: {', '.join(available_models[:3])}",
             )
 
-    except Exception:
+    except (OSError, TimeoutError, json.JSONDecodeError, ValueError, KeyError):
         return False, f"Cannot reach {api_base}"
 
 
@@ -187,14 +187,14 @@ def _check_soul() -> tuple[bool, str]:
                     return True, f"soul.md ({name})"
             return False, "Invalid frontmatter format"
 
-        elif soul_path.suffix == ".yaml":
+        if soul_path.suffix == ".yaml":
             data = yaml.safe_load(content)
             name = data.get("name", "unknown")
             return True, f"soul.yaml ({name})"
 
         return False, f"Unknown format: {soul_path.suffix}"
 
-    except Exception as e:
+    except (OSError, yaml.YAMLError, TypeError, AttributeError, KeyError) as e:
         return False, f"Parse error: {e}"
 
 
@@ -208,16 +208,15 @@ def _check_skills() -> tuple[bool, str]:
 
         builtin_count = len(registry)
 
-        # Try to load external skills
-        external_count = 0
+        # External skills are optional; report zero when loading fails.
         try:
             external_count = registry.load_external_skills()
-        except Exception:
-            pass
+        except BOUNDARY_ERRORS as exc:
+            return True, f"{builtin_count} builtin, 0 external (load error: {exc})"
 
         return True, f"{builtin_count} builtin, {external_count} external"
 
-    except Exception as e:
+    except BOUNDARY_ERRORS as e:
         return False, f"Load error: {e}"
 
 
@@ -241,7 +240,7 @@ def _check_mcp() -> tuple[bool, str]:
 
         return True, f"{len(enabled)} server(s) enabled"
 
-    except Exception as e:
+    except (OSError, json.JSONDecodeError, TypeError, AttributeError, KeyError) as e:
         return False, f"Parse error: {e}"
 
 

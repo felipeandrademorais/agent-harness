@@ -20,6 +20,7 @@ import typer
 from rich.console import Console
 
 from harness.config import ConfigManager
+from harness.core.exceptions import BOUNDARY_ERRORS
 
 console = Console()
 
@@ -271,23 +272,27 @@ def status_command() -> None:
     if running:
         console.print(f"[green]Agent Harness is running[/green] (PID: {pid})")
 
-        # Show uptime if we can read /proc
+        # Show uptime/memory when psutil is available
         try:
             import psutil
+        except ImportError:
+            psutil = None  # type: ignore[assignment]
 
-            proc = psutil.Process(pid)
-            create_time = proc.create_time()
-            uptime_seconds = time.time() - create_time
+        if psutil is not None:
+            try:
+                proc = psutil.Process(pid)
+                create_time = proc.create_time()
+                uptime_seconds = time.time() - create_time
 
-            hours, remainder = divmod(int(uptime_seconds), 3600)
-            minutes, seconds = divmod(remainder, 60)
+                hours, remainder = divmod(int(uptime_seconds), 3600)
+                minutes, seconds = divmod(remainder, 60)
 
-            console.print(f"[dim]Uptime: {hours}h {minutes}m {seconds}s[/dim]")
-            console.print(
-                f"[dim]Memory: {proc.memory_info().rss / 1024 / 1024:.1f} MB[/dim]"
-            )
-        except (ImportError, Exception):
-            pass
+                console.print(f"[dim]Uptime: {hours}h {minutes}m {seconds}s[/dim]")
+                console.print(
+                    f"[dim]Memory: {proc.memory_info().rss / 1024 / 1024:.1f} MB[/dim]"
+                )
+            except BOUNDARY_ERRORS as exc:
+                console.print(f"[dim]Could not read process stats: {exc}[/dim]")
 
         # Show log file location
         manager = ConfigManager()

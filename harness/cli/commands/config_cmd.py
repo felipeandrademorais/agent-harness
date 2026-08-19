@@ -42,14 +42,40 @@ def _redact_value(key: str, value: Any) -> Any:
         return "***"
 
     # Redact database URLs (contain passwords)
-    if final_key == "url" and value and isinstance(value, str) and "@" in value:
+    if (
+        final_key == "url"
+        and value
+        and isinstance(value, str)
+        and "@" in value
+        and "://" in value
+    ):
         # postgresql://user:pass@host:port/db -> postgresql://***@host:port/db
-        if "://" in value:
-            prefix, rest = value.split("://", 1)
-            if "@" in rest:
-                creds, host = rest.split("@", 1)
-                return f"{prefix}://***@{host}"
+        prefix, rest = value.split("://", 1)
+        if "@" in rest:
+            _, host = rest.split("@", 1)
+            return f"{prefix}://***@{host}"
 
+    return value
+
+
+def _coerce_list_value(current_value: list, value: str) -> list:
+    """Parse a comma-separated string into a list matching current element types."""
+    if current_value and isinstance(current_value[0], int):
+        return [int(x.strip()) for x in value.split(",") if x.strip()]
+    return [x.strip() for x in value.split(",") if x.strip()]
+
+
+def _coerce_config_value(current_value: Any, value: str) -> Any:
+    """Convert a CLI string to the type of the existing config value."""
+    handlers: dict[type, Any] = {
+        bool: lambda v: v.lower() in ("true", "1", "yes", "on"),
+        int: int,
+        float: float,
+        list: lambda v: _coerce_list_value(current_value, v),
+    }
+    for typ, handler in handlers.items():
+        if isinstance(current_value, typ):
+            return handler(value)
     return value
 
 
@@ -199,20 +225,7 @@ def set_command(
 
     # Convert value to appropriate type
     try:
-        if isinstance(current_value, bool):
-            new_value = value.lower() in ("true", "1", "yes", "on")
-        elif isinstance(current_value, int):
-            new_value = int(value)
-        elif isinstance(current_value, float):
-            new_value = float(value)
-        elif isinstance(current_value, list):
-            # Parse comma-separated list
-            if current_value and isinstance(current_value[0], int):
-                new_value = [int(x.strip()) for x in value.split(",") if x.strip()]
-            else:
-                new_value = [x.strip() for x in value.split(",") if x.strip()]
-        else:
-            new_value = value
+        new_value = _coerce_config_value(current_value, value)
     except ValueError as e:
         console.print(f"[red]Invalid value for {key}: {e}[/red]")
         raise typer.Exit(1)

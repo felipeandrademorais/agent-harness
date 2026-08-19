@@ -27,12 +27,18 @@ from aiogram.filters import Command
 from aiogram.types import Message, PhotoSize, Update
 
 from harness.channels.base import BaseChannel, IncomingMessage
+from harness.core.exceptions import BOUNDARY_ERRORS
 
 if TYPE_CHECKING:
     from harness.memory.repository import ConversationRepository
     from harness.skills.registry import SkillRegistry
 
 log = structlog.get_logger(__name__)
+
+try:
+    from aiogram.exceptions import TelegramAPIError
+except ImportError:  # pragma: no cover
+    TelegramAPIError = BOUNDARY_ERRORS  # type: ignore[misc,assignment]
 
 _TELEGRAM_MAX_LEN = 4096
 
@@ -122,14 +128,14 @@ class TelegramChannel(BaseChannel):
         for chunk in _split_message(text):
             try:
                 await self._bot.send_message(user_id, chunk, parse_mode=None)
-            except Exception as exc:
+            except TelegramAPIError as exc:
                 log.error("telegram_send_error", user_id=user_id, error=str(exc))
 
     async def send_typing(self, user_id: int) -> None:
         """Send a typing indicator."""
         try:
             await self._bot.send_chat_action(user_id, ChatAction.TYPING)
-        except Exception as exc:
+        except TelegramAPIError as exc:
             log.warning("telegram_typing_error", user_id=user_id, error=str(exc))
 
     async def _handle_start(self, message: Message) -> None:
@@ -229,7 +235,7 @@ class TelegramChannel(BaseChannel):
                 height=largest_photo.height,
             )
 
-        except Exception as exc:
+        except TelegramAPIError as exc:
             log.error("telegram_photo_download_error", error=str(exc))
             await message.answer("❌ Erro ao processar a imagem. Tente novamente.")
             return

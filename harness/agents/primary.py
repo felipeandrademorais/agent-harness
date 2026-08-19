@@ -21,6 +21,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from harness.agents.graph import build_harness_graph
 from harness.agents.tools_adapter import build_all_langchain_tools
 from harness.channels.base import IncomingMessage
+from harness.core.exceptions import BOUNDARY_ERRORS
 from harness.providers.chat_model import LiteLLMChatModel
 from harness.providers.llm_provider import LLMProviderError, ToolCall
 from harness.skills.base import SkillContext
@@ -140,7 +141,7 @@ class PrimaryAgent:
         except LLMProviderError as exc:
             log.error("primary_agent_llm_error", error=str(exc))
             return "Desculpe, estou temporariamente indisponível. Tente novamente."
-        except Exception as exc:
+        except BOUNDARY_ERRORS as exc:
             log.error("primary_agent_graph_error", error=str(exc))
             # Fallback to direct completion if graph execution fails in test mocks
             try:
@@ -246,13 +247,13 @@ class PrimaryAgent:
                 if result.requires_confirmation:
                     return f"[Aguardando confirmação]\n{result.confirmation_message}"
                 return result.content
-            except Exception as exc:
+            except BOUNDARY_ERRORS as exc:
                 return f"[Erro ao executar skill '{tool_name}'] {exc}"
 
         if tool_name == "spawn_agent" and self._factory:
             try:
                 return await self._factory.spawn_and_run(arguments)
-            except Exception as exc:
+            except BOUNDARY_ERRORS as exc:
                 return f"[Erro ao spawnar agente] {exc}"
 
         return f"[Ferramenta '{tool_name}' não encontrada]"
@@ -283,7 +284,7 @@ class PrimaryAgent:
                 role="assistant",
                 content=response,
             )
-        except Exception as exc:
+        except BOUNDARY_ERRORS as exc:
             log.error("persist_error", user_id=message.user_id, error=str(exc))
 
     def _log_complete(self, t0: float, user_id: int) -> None:

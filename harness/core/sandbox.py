@@ -25,9 +25,11 @@ import asyncio
 import subprocess
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 import structlog
+
+from harness.core.exceptions import BOUNDARY_ERRORS
 
 if TYPE_CHECKING:
     from harness.soul.loader import Soul
@@ -117,7 +119,7 @@ class Sandbox:
     # Commands that are ALWAYS blocked, regardless of Soul config
     # These are extremely dangerous and have no legitimate use case
     # Note: "rm -rf /tmp/something" is NOT blocked - it requires confirmation via Soul rules
-    ALWAYS_BLOCKED = [
+    ALWAYS_BLOCKED: ClassVar[list[str]] = [
         ":(){ :|:& };:",  # Fork bomb
         "rm -rf /",  # Delete entire filesystem
         "rm -rf /*",  # Delete entire filesystem
@@ -192,9 +194,7 @@ class Sandbox:
                 if command_lower == blocked_lower:
                     return True
                 # "rm -rf / --something" should be blocked
-                if command_lower.startswith("rm -rf / ") or command_lower.startswith(
-                    "rm -rf /* "
-                ):
+                if command_lower.startswith(("rm -rf / ", "rm -rf /* ")):
                     return True
                 continue
 
@@ -264,7 +264,7 @@ class Sandbox:
 
             return result
 
-        except Exception as exc:
+        except BOUNDARY_ERRORS as exc:
             log.error("command_execution_failed", command=command, error=str(exc))
             return CommandResult(
                 stdout="",
@@ -289,6 +289,7 @@ class Sandbox:
                 capture_output=True,
                 timeout=timeout,
                 cwd=cwd,
+                check=False,
             )
 
             return CommandResult(
@@ -304,7 +305,7 @@ class Sandbox:
                 return_code=-1,
                 command=command,
             )
-        except Exception as exc:
+        except BOUNDARY_ERRORS as exc:
             return CommandResult(
                 stdout="",
                 stderr=f"Execution failed: {exc}",

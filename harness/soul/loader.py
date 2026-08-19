@@ -32,6 +32,8 @@ from typing import Any
 import structlog
 import yaml
 
+from harness.core.exceptions import BOUNDARY_ERRORS
+
 log = structlog.get_logger(__name__)
 
 
@@ -312,7 +314,7 @@ def load_soul(path: str | Path) -> Soul:
                 soul = _load_soul_from_markdown(path)
             else:
                 soul = _load_soul_from_yaml(path)
-    except Exception as e:
+    except BOUNDARY_ERRORS as e:
         log.error("soul_load_failed", path=str(path), error=str(e))
         return Soul()  # Return default soul
 

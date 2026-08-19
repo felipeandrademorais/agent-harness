@@ -25,6 +25,8 @@ from typing import Any
 import litellm
 import structlog
 
+from harness.core.exceptions import BOUNDARY_ERRORS
+
 log = structlog.get_logger(__name__)
 
 # Silence LiteLLM's own verbose logging — we handle logging ourselves.
@@ -122,7 +124,7 @@ class LLMProvider:
 
         try:
             raw = await litellm.acompletion(messages=messages, **kwargs)
-        except Exception as exc:
+        except BOUNDARY_ERRORS as exc:
             raise LLMProviderError(f"LiteLLM error: {exc}") from exc
 
         latency_ms = int((time.monotonic() - t0) * 1000)

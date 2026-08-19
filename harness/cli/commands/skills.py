@@ -19,6 +19,7 @@ from rich.console import Console
 from rich.table import Table
 
 from harness.config import ConfigManager
+from harness.core.exceptions import BOUNDARY_ERRORS
 
 console = Console()
 
@@ -29,16 +30,55 @@ app = typer.Typer(
 )
 
 
+def _load_external_skill_file(skill_file: Path, skills_dir: Path) -> list[dict]:
+    """Load skill metadata from a single Python file; fall back on load errors."""
+    try:
+        import importlib.util
+        import inspect
+
+        from harness.skills.base import BaseSkill
+
+        spec = importlib.util.spec_from_file_location(skill_file.stem, skill_file)
+        if not spec or not spec.loader:
+            return []
+
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        found: list[dict] = []
+        for _name, obj in inspect.getmembers(module, inspect.isclass):
+            if obj is BaseSkill:
+                continue
+            if issubclass(obj, BaseSkill) and hasattr(obj, "name") and obj.name:
+                found.append(
+                    {
+                        "name": obj.name,
+                        "description": getattr(obj, "description", ""),
+                        "source": str(skills_dir),
+                        "file": skill_file.name,
+                    }
+                )
+        return found
+    except BOUNDARY_ERRORS:
+        return [
+            {
+                "name": skill_file.stem,
+                "description": "[error loading]",
+                "source": str(skills_dir),
+                "file": skill_file.name,
+            }
+        ]
+
+
 def _get_skills_info() -> tuple[list[dict], list[dict]]:
     """
     Get information about all skills.
 
     :returns: Tuple of (builtin_skills, external_skills) where each is a list of dicts.
     """
-    builtin_skills = []
-    external_skills = []
+    builtin_skills: list[dict] = []
+    external_skills: list[dict] = []
 
-    # Load builtin skills
     try:
         from harness.skills.builtin import get_builtin_skills
 
@@ -50,15 +90,14 @@ def _get_skills_info() -> tuple[list[dict], list[dict]]:
                     "source": "builtin",
                 }
             )
-    except Exception as e:
+    except BOUNDARY_ERRORS as e:
         console.print(f"[yellow]Warning: Could not load builtin skills: {e}[/yellow]")
 
-    # Load external skills
     manager = ConfigManager()
     skills_dirs = [
-        Path("./skills"),  # Project-local
-        manager.skills_dir,  # User (~/.agent-harness/skills/)
-        Path.home() / ".harness" / "skills",  # Legacy location
+        Path("./skills"),
+        manager.skills_dir,
+        Path.home() / ".harness" / "skills",
     ]
 
     for skills_dir in skills_dirs:
@@ -68,47 +107,7 @@ def _get_skills_info() -> tuple[list[dict], list[dict]]:
         for skill_file in skills_dir.glob("*.py"):
             if skill_file.name.startswith("_"):
                 continue
-
-            # Try to load and inspect
-            try:
-                import importlib.util
-                import inspect
-
-                from harness.skills.base import BaseSkill
-
-                spec = importlib.util.spec_from_file_location(
-                    skill_file.stem, skill_file
-                )
-                if spec and spec.loader:
-                    module = importlib.util.module_from_spec(spec)
-                    spec.loader.exec_module(module)
-
-                    for name, obj in inspect.getmembers(module, inspect.isclass):
-                        if obj is BaseSkill:
-                            continue
-                        if (
-                            issubclass(obj, BaseSkill)
-                            and hasattr(obj, "name")
-                            and obj.name
-                        ):
-                            external_skills.append(
-                                {
-                                    "name": obj.name,
-                                    "description": getattr(obj, "description", ""),
-                                    "source": str(skills_dir),
-                                    "file": skill_file.name,
-                                }
-                            )
-            except Exception:
-                # Just note the file exists
-                external_skills.append(
-                    {
-                        "name": skill_file.stem,
-                        "description": "[error loading]",
-                        "source": str(skills_dir),
-                        "file": skill_file.name,
-                    }
-                )
+            external_skills.extend(_load_external_skill_file(skill_file, skills_dir))
 
     return builtin_skills, external_skills
 
@@ -136,7 +135,7 @@ def list_command(
     table = Table(box=box.ROUNDED, show_header=True, header_style="bold cyan")
     table.add_column("Name", style="bold", width=16)
     table.add_column("Source", width=12)
-    table.add_column("Description" if verbose else "Description", overflow="fold")
+    table.add_column("Description", overflow="fold")
 
     if verbose:
         table.add_column("File", width=20)
@@ -307,7 +306,7 @@ def remove_command(
     Only user-installed skills can be removed. Builtin skills cannot be removed.
     """
     # Check if it's a builtin skill
-    builtin_skills, external_skills = _get_skills_info()
+    builtin_skills, _ = _get_skills_info()
     builtin_names = {s["name"] for s in builtin_skills}
 
     if name in builtin_names:

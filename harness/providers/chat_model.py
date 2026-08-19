@@ -20,41 +20,59 @@ from langchain_core.outputs import ChatGeneration, ChatResult
 from pydantic import ConfigDict, Field
 
 
+def _convert_system_message(msg: SystemMessage) -> dict[str, Any]:
+    return {"role": "system", "content": msg.content}
+
+
+def _convert_human_message(msg: HumanMessage) -> dict[str, Any]:
+    return {"role": "user", "content": msg.content}
+
+
+def _convert_ai_message(msg: AIMessage) -> dict[str, Any]:
+    item: dict[str, Any] = {"role": "assistant", "content": msg.content or ""}
+    if msg.tool_calls:
+        item["tool_calls"] = [
+            {
+                "id": tc["id"],
+                "type": "function",
+                "function": {
+                    "name": tc["name"],
+                    "arguments": json.dumps(tc["args"])
+                    if isinstance(tc["args"], dict)
+                    else str(tc["args"]),
+                },
+            }
+            for tc in msg.tool_calls
+        ]
+    return item
+
+
+def _convert_tool_message(msg: ToolMessage) -> dict[str, Any]:
+    return {
+        "role": "tool",
+        "tool_call_id": msg.tool_call_id,
+        "content": str(msg.content),
+    }
+
+
+_MESSAGE_CONVERTERS: dict[type, Any] = {
+    SystemMessage: _convert_system_message,
+    HumanMessage: _convert_human_message,
+    AIMessage: _convert_ai_message,
+    ToolMessage: _convert_tool_message,
+}
+
+
 def langchain_messages_to_dict(messages: list[BaseMessage]) -> list[dict[str, Any]]:
     """Convert LangChain BaseMessages to OpenAI/LiteLLM dict format."""
     result: list[dict[str, Any]] = []
     for msg in messages:
-        if isinstance(msg, SystemMessage):
-            result.append({"role": "system", "content": msg.content})
-        elif isinstance(msg, HumanMessage):
-            result.append({"role": "user", "content": msg.content})
-        elif isinstance(msg, AIMessage):
-            item: dict[str, Any] = {"role": "assistant", "content": msg.content or ""}
-            if msg.tool_calls:
-                item["tool_calls"] = [
-                    {
-                        "id": tc["id"],
-                        "type": "function",
-                        "function": {
-                            "name": tc["name"],
-                            "arguments": json.dumps(tc["args"])
-                            if isinstance(tc["args"], dict)
-                            else str(tc["args"]),
-                        },
-                    }
-                    for tc in msg.tool_calls
-                ]
-            result.append(item)
-        elif isinstance(msg, ToolMessage):
-            result.append(
-                {
-                    "role": "tool",
-                    "tool_call_id": msg.tool_call_id,
-                    "content": str(msg.content),
-                }
-            )
+        for msg_type, converter in _MESSAGE_CONVERTERS.items():
+            if isinstance(msg, msg_type):
+                result.append(converter(msg))
+                break
         else:
-            # Fallback
+            # Fallback for unknown message types
             result.append({"role": "user", "content": str(msg.content)})
     return result
 

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import time
-from typing import Any
+from typing import Any, ClassVar
 
 import structlog
 
@@ -55,6 +55,27 @@ Regras:
 """
 
 
+def _append_assistant_tool_calls(messages: list[dict[str, Any]], response: Any) -> None:
+    """Append an assistant message carrying tool_calls to *messages*."""
+    messages.append(
+        {
+            "role": "assistant",
+            "content": response.content,
+            "tool_calls": [
+                {
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {
+                        "name": tc.name,
+                        "arguments": json.dumps(tc.arguments),
+                    },
+                }
+                for tc in response.tool_calls
+            ],
+        }
+    )
+
+
 class CodeReviewSkill(BaseSkill):
     """Skill for performing code reviews."""
 
@@ -66,7 +87,104 @@ class CodeReviewSkill(BaseSkill):
     )
     system_prompt = _SYSTEM_PROMPT
     requires_mcp = False  # Can work without MCP (inline code review)
-    mcp_tools = ["gitlab_get_mr", "gitlab_get_diff", "gitlab_get_file"]
+    mcp_tools: ClassVar[list[str]] = [
+        "gitlab_get_mr",
+        "gitlab_get_diff",
+        "gitlab_get_file",
+    ]
+
+    async def _execute_without_mcp(
+        self,
+        task: str,
+        context: SkillContext,
+        messages: list[dict[str, Any]],
+    ) -> SkillResult:
+        """Review inline code or prompt for paste when GitLab MCP is unavailable."""
+        if len(task) < 100:
+            return SkillResult(
+                content=(
+                    "⚠️ *MCP GitLab não configurado*\n\n"
+                    "Para buscar MRs automaticamente, configure o MCP GitLab.\n\n"
+                    "Posso fazer code review se você **colar o código diretamente** na mensagem."
+                ),
+                skill_name=self.name,
+                success=True,
+                metadata={"stub": True},
+            )
+
+        try:
+            response = await context.llm.complete(messages=messages, tools=None)
+            return SkillResult(
+                content=response.content or "(sem resposta)",
+                skill_name=self.name,
+                success=True,
+                metadata={"model": context.llm.model, **response.usage},
+            )
+        except LLMProviderError as exc:
+            return SkillResult(
+                content=f"Erro ao processar o review: {exc}",
+                skill_name=self.name,
+                success=False,
+                metadata={"error": str(exc)},
+            )
+
+    async def _run_tool_loop(
+        self,
+        context: SkillContext,
+        messages: list[dict[str, Any]],
+        tool_defs: list[dict[str, Any]],
+        t0: float,
+    ) -> SkillResult:
+        """Run the MCP tool-calling loop for GitLab-backed code review."""
+        iteration = 0
+        response = None
+
+        for iteration in range(_MAX_TOOL_ITERATIONS):
+            try:
+                response = await context.llm.complete(
+                    messages=messages,
+                    tools=tool_defs or None,
+                )
+            except LLMProviderError as exc:
+                log.error("code_review_llm_error", error=str(exc))
+                return SkillResult(
+                    content="Erro ao processar o review. Tente novamente.",
+                    skill_name=self.name,
+                    success=False,
+                    metadata={"error": str(exc)},
+                )
+
+            if not response.tool_calls:
+                break
+
+            _append_assistant_tool_calls(messages, response)
+
+            for tc in response.tool_calls:
+                result = await context.mcp.call_tool(tc.name, tc.arguments)
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tc.id,
+                        "content": result.content,
+                    }
+                )
+
+        latency_ms = int((time.monotonic() - t0) * 1000)
+        log.info(
+            "code_review_complete", latency_ms=latency_ms, iterations=iteration + 1
+        )
+
+        return SkillResult(
+            content=(response.content if response else None) or "(sem resposta)",
+            skill_name=self.name,
+            success=True,
+            metadata={
+                "latency_ms": latency_ms,
+                "model": context.llm.model,
+                "iterations": iteration + 1,
+                **(response.usage if response else {}),
+            },
+        )
 
     async def execute(
         self,
@@ -94,107 +212,13 @@ class CodeReviewSkill(BaseSkill):
             {"role": "user", "content": task},
         ]
 
-        # Check if we have MCP for GitLab
         has_mcp_gitlab = context.mcp is not None and any(
             context.mcp.get_tool_server(t)
             for t in ["gitlab_get_mr", "get_merge_request"]
         )
 
         if not has_mcp_gitlab:
-            # No MCP — review inline code or provide guidance
-            if len(task) < 100:
-                return SkillResult(
-                    content=(
-                        "⚠️ *MCP GitLab não configurado*\n\n"
-                        "Para buscar MRs automaticamente, configure o MCP GitLab.\n\n"
-                        "Posso fazer code review se você **colar o código diretamente** na mensagem."
-                    ),
-                    skill_name=self.name,
-                    success=True,
-                    metadata={"stub": True},
-                )
+            return await self._execute_without_mcp(task, context, messages)
 
-            # User pasted code inline — review without tools
-            try:
-                response = await context.llm.complete(messages=messages, tools=None)
-                return SkillResult(
-                    content=response.content or "(sem resposta)",
-                    skill_name=self.name,
-                    success=True,
-                    metadata={"model": context.llm.model, **response.usage},
-                )
-            except LLMProviderError as exc:
-                return SkillResult(
-                    content=f"Erro ao processar o review: {exc}",
-                    skill_name=self.name,
-                    success=False,
-                    metadata={"error": str(exc)},
-                )
-
-        # With MCP GitLab — use tool calling
         tool_defs = await context.mcp.list_all_tools()
-        iteration = 0
-
-        for iteration in range(_MAX_TOOL_ITERATIONS):
-            try:
-                response = await context.llm.complete(
-                    messages=messages,
-                    tools=tool_defs or None,
-                )
-            except LLMProviderError as exc:
-                log.error("code_review_llm_error", error=str(exc))
-                return SkillResult(
-                    content="Erro ao processar o review. Tente novamente.",
-                    skill_name=self.name,
-                    success=False,
-                    metadata={"error": str(exc)},
-                )
-
-            if not response.tool_calls:
-                break
-
-            # Add assistant message with tool calls
-            messages.append(
-                {
-                    "role": "assistant",
-                    "content": response.content,
-                    "tool_calls": [
-                        {
-                            "id": tc.id,
-                            "type": "function",
-                            "function": {
-                                "name": tc.name,
-                                "arguments": json.dumps(tc.arguments),
-                            },
-                        }
-                        for tc in response.tool_calls
-                    ],
-                }
-            )
-
-            for tc in response.tool_calls:
-                result = await context.mcp.call_tool(tc.name, tc.arguments)
-                messages.append(
-                    {
-                        "role": "tool",
-                        "tool_call_id": tc.id,
-                        "content": result.content,
-                    }
-                )
-
-        latency_ms = int((time.monotonic() - t0) * 1000)
-        log.info(
-            "code_review_complete", latency_ms=latency_ms, iterations=iteration + 1
-        )
-
-        return SkillResult(
-            content=response.content or "(sem resposta)",
-            skill_name=self.name,
-            success=True,
-            metadata={
-                "latency_ms": latency_ms,
-                "model": context.llm.model,
-                "iterations": iteration + 1,
-                **response.usage,
-            },
-        )
+        return await self._run_tool_loop(context, messages, tool_defs, t0)

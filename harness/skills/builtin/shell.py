@@ -89,8 +89,8 @@ class ShellSkill(BaseSkill):
                 success=False,
             )
 
-        # Load soul for sandbox configuration
-        # TODO: Pass soul via context.metadata instead of loading here
+        # Load soul for sandbox configuration.
+        # Soul may be injected via context.metadata['soul'].
         soul = context.metadata.get("soul")
         if soul is None:
             soul = load_soul("config/soul.yaml")

@@ -9,6 +9,7 @@ from typing import Any
 from langchain_core.tools import BaseTool, StructuredTool
 from pydantic import BaseModel, Field, create_model
 
+from harness.core.exceptions import BOUNDARY_ERRORS
 from harness.providers.llm_provider import LLMProvider
 from harness.providers.mcp_manager import MCPManager
 from harness.skills.base import BaseSkill, SkillContext
@@ -51,7 +52,7 @@ def create_skill_tool(
             if result.requires_confirmation:
                 return f"[Aguardando confirmação]\n{result.confirmation_message}"
             return result.content
-        except Exception as exc:
+        except BOUNDARY_ERRORS as exc:
             return f"[Erro ao executar skill '{skill.name}'] {exc}"
 
     return StructuredTool.from_function(
@@ -67,10 +68,11 @@ def create_mcp_tool(
     mcp_manager: MCPManager,
 ) -> BaseTool:
     """Wrap an MCP tool definition as a LangChain BaseTool."""
-    func_info = tool_def.get("function", {})
+    func_info = tool_def.get("function") or {}
     name = func_info.get("name", "mcp_tool")
     description = func_info.get("description", "MCP Tool")
-    params = func_info.get("parameters", {}).get("properties", {})
+    params_schema = func_info.get("parameters") or {}
+    params = params_schema.get("properties") or {}
 
     fields: dict[str, Any] = {}
     for p_name, p_info in params.items():
@@ -106,10 +108,10 @@ def create_mcp_tool(
 def create_spawn_agent_tool(factory: Any) -> BaseTool:
     """Wrap AgentFactory.spawn_and_run as a LangChain BaseTool."""
 
-    async def _arun(goal: str, skills: list[str] = None, **kwargs: Any) -> str:
+    async def _arun(goal: str, skills: list[str] | None = None, **kwargs: Any) -> str:
         try:
             return await factory.spawn_and_run({"goal": goal, "skills": skills or []})
-        except Exception as exc:
+        except BOUNDARY_ERRORS as exc:
             return f"[Erro ao spawnar agente] {exc}"
 
     return StructuredTool.from_function(
@@ -148,7 +150,7 @@ def build_all_langchain_tools(
                 )
             else:
                 raw_mcp_tools = asyncio.run(mcp_manager.list_all_tools())
-        except Exception:
+        except BOUNDARY_ERRORS:
             raw_mcp_tools = []
         for t_def in raw_mcp_tools:
             tools.append(create_mcp_tool(t_def, mcp_manager))

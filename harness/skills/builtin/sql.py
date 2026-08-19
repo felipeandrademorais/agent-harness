@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import time
-from typing import Any
+from typing import Any, ClassVar
 
 import structlog
 
@@ -70,6 +70,27 @@ def _is_write_operation(tool_name: str, arguments: dict[str, Any]) -> bool:
     return False
 
 
+def _append_assistant_tool_calls(messages: list[dict[str, Any]], response: Any) -> None:
+    """Append an assistant message carrying tool_calls to *messages*."""
+    messages.append(
+        {
+            "role": "assistant",
+            "content": response.content,
+            "tool_calls": [
+                {
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {
+                        "name": tc.name,
+                        "arguments": json.dumps(tc.arguments),
+                    },
+                }
+                for tc in response.tool_calls
+            ],
+        }
+    )
+
+
 class SQLSkill(BaseSkill):
     """Skill for PostgreSQL queries and analysis."""
 
@@ -81,7 +102,118 @@ class SQLSkill(BaseSkill):
     )
     system_prompt = _SYSTEM_PROMPT
     requires_mcp = True
-    mcp_tools = ["postgres_query", "postgres_list_tables", "postgres_describe_table"]
+    mcp_tools: ClassVar[list[str]] = [
+        "postgres_query",
+        "postgres_list_tables",
+        "postgres_describe_table",
+    ]
+
+    async def _execute_without_mcp(
+        self,
+        task: str,
+        context: SkillContext,
+        messages: list[dict[str, Any]],
+    ) -> SkillResult:
+        """Answer without database access when MCP PostgreSQL is unavailable."""
+        try:
+            response = await context.llm.complete(messages=messages, tools=None)
+            content = response.content or "(sem resposta)"
+
+            needs_warning = any(
+                kw in task.lower()
+                for kw in ("execute", "roda", "executar", "resultado", "retorna")
+            )
+            if needs_warning:
+                content = (
+                    "⚠️ *Query não testada — MCP PostgreSQL não configurado.*\n\n"
+                    + content
+                )
+
+            return SkillResult(
+                content=content,
+                skill_name=self.name,
+                success=True,
+                metadata={"stub": True, "model": context.llm.model},
+            )
+        except LLMProviderError as exc:
+            return SkillResult(
+                content=f"Erro ao processar: {exc}",
+                skill_name=self.name,
+                success=False,
+                metadata={"error": str(exc)},
+            )
+
+    async def _run_tool_loop(
+        self,
+        context: SkillContext,
+        messages: list[dict[str, Any]],
+        tool_defs: list[dict[str, Any]],
+        t0: float,
+    ) -> SkillResult:
+        """Run the MCP tool-calling loop for SQL operations."""
+        iteration = 0
+        response = None
+
+        for iteration in range(_MAX_TOOL_ITERATIONS):
+            try:
+                response = await context.llm.complete(
+                    messages=messages,
+                    tools=tool_defs or None,
+                )
+            except LLMProviderError as exc:
+                log.error("sql_skill_llm_error", error=str(exc))
+                return SkillResult(
+                    content="Erro ao processar a consulta. Tente novamente.",
+                    skill_name=self.name,
+                    success=False,
+                    metadata={"error": str(exc)},
+                )
+
+            if not response.tool_calls:
+                break
+
+            _append_assistant_tool_calls(messages, response)
+
+            for tc in response.tool_calls:
+                if _is_write_operation(tc.name, tc.arguments):
+                    log.warning(
+                        "sql_skill_blocked_write", tool=tc.name, args=tc.arguments
+                    )
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tc.id,
+                            "content": (
+                                "Operação de escrita bloqueada por segurança. "
+                                "Apenas SELECT é permitido."
+                            ),
+                        }
+                    )
+                    continue
+
+                result = await context.mcp.call_tool(tc.name, tc.arguments)
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tc.id,
+                        "content": result.content,
+                    }
+                )
+
+        latency_ms = int((time.monotonic() - t0) * 1000)
+        log.info("sql_skill_complete", latency_ms=latency_ms, iterations=iteration + 1)
+
+        return SkillResult(
+            content=(response.content if response else None) or "(sem resposta)",
+            skill_name=self.name,
+            success=True,
+            metadata={
+                "latency_ms": latency_ms,
+                "model": context.llm.model,
+                "iterations": iteration + 1,
+                **(response.usage if response else {}),
+            },
+        )
 
     async def execute(
         self,
@@ -104,118 +236,13 @@ class SQLSkill(BaseSkill):
             {"role": "user", "content": task},
         ]
 
-        # Check if MCP PostgreSQL is available
         has_mcp_postgres = context.mcp is not None and any(
             context.mcp.get_tool_server(t)
             for t in ["postgres_query", "query", "list_tables"]
         )
 
         if not has_mcp_postgres:
-            # No MCP — answer without database access
-            try:
-                response = await context.llm.complete(messages=messages, tools=None)
-                content = response.content or "(sem resposta)"
+            return await self._execute_without_mcp(task, context, messages)
 
-                # Add warning if user seems to want query execution
-                needs_warning = any(
-                    kw in task.lower()
-                    for kw in ("execute", "roda", "executar", "resultado", "retorna")
-                )
-                if needs_warning:
-                    content = (
-                        "⚠️ *Query não testada — MCP PostgreSQL não configurado.*\n\n"
-                        + content
-                    )
-
-                return SkillResult(
-                    content=content,
-                    skill_name=self.name,
-                    success=True,
-                    metadata={"stub": True, "model": context.llm.model},
-                )
-            except LLMProviderError as exc:
-                return SkillResult(
-                    content=f"Erro ao processar: {exc}",
-                    skill_name=self.name,
-                    success=False,
-                    metadata={"error": str(exc)},
-                )
-
-        # With MCP — tool calling loop
         tool_defs = await context.mcp.list_all_tools()
-        iteration = 0
-
-        for iteration in range(_MAX_TOOL_ITERATIONS):
-            try:
-                response = await context.llm.complete(
-                    messages=messages,
-                    tools=tool_defs or None,
-                )
-            except LLMProviderError as exc:
-                log.error("sql_skill_llm_error", error=str(exc))
-                return SkillResult(
-                    content="Erro ao processar a consulta. Tente novamente.",
-                    skill_name=self.name,
-                    success=False,
-                    metadata={"error": str(exc)},
-                )
-
-            if not response.tool_calls:
-                break
-
-            messages.append(
-                {
-                    "role": "assistant",
-                    "content": response.content,
-                    "tool_calls": [
-                        {
-                            "id": tc.id,
-                            "type": "function",
-                            "function": {
-                                "name": tc.name,
-                                "arguments": json.dumps(tc.arguments),
-                            },
-                        }
-                        for tc in response.tool_calls
-                    ],
-                }
-            )
-
-            for tc in response.tool_calls:
-                # Safety guard: block write operations
-                if _is_write_operation(tc.name, tc.arguments):
-                    log.warning(
-                        "sql_skill_blocked_write", tool=tc.name, args=tc.arguments
-                    )
-                    messages.append(
-                        {
-                            "role": "tool",
-                            "tool_call_id": tc.id,
-                            "content": "Operação de escrita bloqueada por segurança. Apenas SELECT é permitido.",
-                        }
-                    )
-                    continue
-
-                result = await context.mcp.call_tool(tc.name, tc.arguments)
-                messages.append(
-                    {
-                        "role": "tool",
-                        "tool_call_id": tc.id,
-                        "content": result.content,
-                    }
-                )
-
-        latency_ms = int((time.monotonic() - t0) * 1000)
-        log.info("sql_skill_complete", latency_ms=latency_ms, iterations=iteration + 1)
-
-        return SkillResult(
-            content=response.content or "(sem resposta)",
-            skill_name=self.name,
-            success=True,
-            metadata={
-                "latency_ms": latency_ms,
-                "model": context.llm.model,
-                "iterations": iteration + 1,
-                **response.usage,
-            },
-        )
+        return await self._run_tool_loop(context, messages, tool_defs, t0)

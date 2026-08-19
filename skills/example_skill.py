@@ -23,10 +23,10 @@ class HelloWorldSkill(BaseSkill):
         :returns: A friendly greeting.
         """
         name = task.strip() or "World"
-
         greeting = f"Hello, {name}! 👋"
 
         # Optionally use the LLM to generate a more creative greeting
+        creative_greeting: str | None = None
         if context.llm and "creative" in task.lower():
             try:
                 response = await context.llm.complete(
@@ -41,9 +41,13 @@ class HelloWorldSkill(BaseSkill):
                         },
                     ]
                 )
-                greeting = response.content or greeting
-            except Exception:
-                pass  # Fall back to simple greeting
+                creative_greeting = response.content or None
+            except (OSError, RuntimeError, ValueError, TypeError):
+                # Creative mode is optional — fall back to the simple greeting.
+                creative_greeting = None
+
+        if creative_greeting:
+            greeting = creative_greeting
 
         return SkillResult(
             content=greeting,

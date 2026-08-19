@@ -16,14 +16,17 @@ from pathlib import Path
 from typing import Any
 
 import structlog
+from pydantic import ValidationError
 
 from harness.config.schema import HarnessConfig, MCPConfig
+from harness.core.exceptions import BOUNDARY_ERRORS
 
 log = structlog.get_logger(__name__)
 
 # Default config directory
 DEFAULT_CONFIG_DIR = "~/.agent-harness"
 ENV_VAR_HOME = "AGENT_HARNESS_HOME"
+_CONFIG_LOAD_ERRORS = (json.JSONDecodeError, ValidationError, *BOUNDARY_ERRORS)
 
 
 def get_harness_home() -> Path:
@@ -145,7 +148,7 @@ class ConfigManager:
                     data = json.load(f)
                 config = HarnessConfig.model_validate(data)
                 log.info("config_loaded", path=str(self.config_file))
-            except Exception as e:
+            except _CONFIG_LOAD_ERRORS as e:
                 log.error(
                     "config_load_failed", path=str(self.config_file), error=str(e)
                 )
@@ -200,9 +203,8 @@ class ConfigManager:
             config.llm.api_key = api_key  # type: ignore
 
         # Environment
-        if env := os.environ.get("HARNESS_ENV"):
-            if env in ("dev", "prod"):
-                config.env = env
+        if (env := os.environ.get("HARNESS_ENV")) and env in ("dev", "prod"):
+            config.env = env
 
         return config
 
@@ -233,7 +235,7 @@ class ConfigManager:
                 with self.mcp_file.open() as f:
                     data = json.load(f)
                 return MCPConfig.model_validate(data)
-            except Exception as e:
+            except _CONFIG_LOAD_ERRORS as e:
                 log.error(
                     "mcp_config_load_failed", path=str(self.mcp_file), error=str(e)
                 )
@@ -316,11 +318,14 @@ class ConfigManager:
 
         if redact_secrets:
             # Redact known secret fields
-            if data.get("telegram", {}).get("token"):
+            telegram = data.get("telegram") or {}
+            if telegram.get("token"):
                 data["telegram"]["token"] = "***"
-            if data.get("database", {}).get("url"):
+            database = data.get("database") or {}
+            if database.get("url"):
                 data["database"]["url"] = "***"
-            if data.get("llm", {}).get("api_key"):
+            llm = data.get("llm") or {}
+            if llm.get("api_key"):
                 data["llm"]["api_key"] = "***"
 
         return data

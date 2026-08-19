@@ -26,6 +26,7 @@ from typing import Any
 
 import structlog
 
+from harness.core.exceptions import BOUNDARY_ERRORS
 from harness.providers.mcp_client import MCPClient, MCPToolResult
 
 log = structlog.get_logger(__name__)
@@ -112,7 +113,7 @@ class MCPManager:
             self._clients[config.name] = client
             log.info("mcp_server_connected", name=config.name, type=config.type)
 
-        except Exception as exc:
+        except BOUNDARY_ERRORS as exc:
             log.error("mcp_server_connect_failed", name=config.name, error=str(exc))
 
     async def _build_tool_routing(self) -> None:
@@ -134,7 +135,7 @@ class MCPManager:
                         # Keep the first one registered
                         continue
                     self._tool_routing[tool.name] = server_name
-            except Exception as exc:
+            except BOUNDARY_ERRORS as exc:
                 log.error("mcp_list_tools_failed", server=server_name, error=str(exc))
 
     async def disconnect_all(self) -> None:
@@ -143,7 +144,7 @@ class MCPManager:
             try:
                 await client.__aexit__(None, None, None)
                 log.debug("mcp_server_disconnected", name=name)
-            except Exception as exc:
+            except BOUNDARY_ERRORS as exc:
                 log.warning("mcp_server_disconnect_error", name=name, error=str(exc))
 
         self._clients.clear()
@@ -167,7 +168,7 @@ class MCPManager:
                 mcp_tools = await client.list_tools()
                 openai_tools = client.as_llm_tools(mcp_tools)
                 all_tools.extend(openai_tools)
-            except Exception as exc:
+            except BOUNDARY_ERRORS as exc:
                 log.error("mcp_list_tools_failed", server=server_name, error=str(exc))
 
         self._tools_cache = all_tools

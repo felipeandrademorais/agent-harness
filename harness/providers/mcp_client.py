@@ -21,9 +21,11 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Self
 
 import structlog
+
+from harness.core.exceptions import BOUNDARY_ERRORS
 
 log = structlog.get_logger(__name__)
 
@@ -70,10 +72,10 @@ class MCPClient:
         self._cm: Any = None  # the transport context manager
         self._tools_cache: list[MCPTool] | None = None
 
-    async def __aenter__(self) -> MCPClient:
+    async def __aenter__(self) -> Self:
         try:
             await self._connect()
-        except Exception as exc:
+        except BOUNDARY_ERRORS as exc:
             log.warning("mcp_connect_failed", error=str(exc))
             # Stay functional in stub mode — callers check _session is None
         return self
@@ -108,7 +110,7 @@ class MCPClient:
                 await self._session.__aexit__(None, None, None)
             if self._cm:
                 await self._cm.__aexit__(None, None, None)
-        except Exception as exc:
+        except BOUNDARY_ERRORS as exc:
             log.warning("mcp_disconnect_error", error=str(exc))
         self._session = None
         self._cm = None
@@ -146,7 +148,7 @@ class MCPClient:
         t0 = time.monotonic()
         try:
             result = await self._session.call_tool(name, arguments)
-        except Exception as exc:
+        except BOUNDARY_ERRORS as exc:
             log.error("mcp_tool_call_failed", tool=name, error=str(exc))
             return MCPToolResult(
                 content=f"Error calling '{name}': {exc}", is_error=True
