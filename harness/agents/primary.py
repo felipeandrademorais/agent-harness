@@ -7,6 +7,7 @@ The PrimaryAgent is the central AI agent that:
 3. Can spawn sub-agents for complex, multi-step tasks
 4. Enforces safety rules via the Sandbox and LangGraph interrupt
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -44,11 +45,11 @@ class PrimaryAgent:
 
     def __init__(
         self,
-        llm_provider: "LLMProvider",
-        soul: "Soul",
-        skills: "SkillRegistry",
-        memory: "ConversationRepository",
-        mcp_manager: "MCPManager | None" = None,
+        llm_provider: LLMProvider,
+        soul: Soul,
+        skills: SkillRegistry,
+        memory: ConversationRepository,
+        mcp_manager: MCPManager | None = None,
         checkpointer: Any | None = None,
     ) -> None:
         self._llm = llm_provider
@@ -85,10 +86,6 @@ class PrimaryAgent:
             )
         return self._compiled_graph
 
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
-
     async def process(self, message: IncomingMessage) -> str:
         """
         Process an incoming message end-to-end using LangGraph.
@@ -107,10 +104,9 @@ class PrimaryAgent:
                 {"type": "text", "text": message.text}
             ]
             for image_data in message.raw["images"]:
-                content_parts.append({
-                    "type": "image_url",
-                    "image_url": {"url": image_data}
-                })
+                content_parts.append(
+                    {"type": "image_url", "image_url": {"url": image_data}}
+                )
             user_msg = HumanMessage(content=content_parts)
         else:
             user_msg = HumanMessage(content=message.text)
@@ -119,7 +115,7 @@ class PrimaryAgent:
         try:
             graph = self._get_graph()
             config = {"configurable": {"thread_id": str(message.user_id)}}
-            
+
             # Prepare initial state with system prompt & message
             initial_messages = []
             if system_prompt:
@@ -131,11 +127,12 @@ class PrimaryAgent:
                 config=config,
             )
 
-            # Extract final text output
             final_response = res.get("final_response")
             if not final_response and res.get("messages"):
                 last_msg = res["messages"][-1]
-                final_response = getattr(last_msg, "content", "(sem resposta)") or "(sem resposta)"
+                final_response = (
+                    getattr(last_msg, "content", "(sem resposta)") or "(sem resposta)"
+                )
 
             if not final_response:
                 final_response = "(sem resposta)"
@@ -154,7 +151,9 @@ class PrimaryAgent:
                 else:
                     dict_messages.append({"role": "user", "content": message.text})
 
-                final_response = await self._agentic_loop(dict_messages, tools, message.user_id)
+                final_response = await self._agentic_loop(
+                    dict_messages, tools, message.user_id
+                )
             except LLMProviderError:
                 return "Desculpe, estou temporariamente indisponível. Tente novamente."
 
@@ -163,10 +162,6 @@ class PrimaryAgent:
 
         self._log_complete(t0, message.user_id)
         return final_response
-
-    # ------------------------------------------------------------------
-    # Legacy & Test Compatibility Helpers
-    # ------------------------------------------------------------------
 
     async def _agentic_loop(
         self,
@@ -186,27 +181,31 @@ class PrimaryAgent:
                 return response.content or "(sem resposta)"
 
             tool_results = await self._execute_tool_calls(response.tool_calls, user_id)
-            messages.append({
-                "role": "assistant",
-                "content": response.content,
-                "tool_calls": [
-                    {
-                        "id": tc.id,
-                        "type": "function",
-                        "function": {
-                            "name": tc.name,
-                            "arguments": json.dumps(tc.arguments),
-                        },
-                    }
-                    for tc in response.tool_calls
-                ],
-            })
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": response.content,
+                    "tool_calls": [
+                        {
+                            "id": tc.id,
+                            "type": "function",
+                            "function": {
+                                "name": tc.name,
+                                "arguments": json.dumps(tc.arguments),
+                            },
+                        }
+                        for tc in response.tool_calls
+                    ],
+                }
+            )
             for tc, result in zip(response.tool_calls, tool_results):
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tc.id,
-                    "content": result,
-                })
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tc.id,
+                        "content": result,
+                    }
+                )
 
         return "(limite de iterações atingido)"
 

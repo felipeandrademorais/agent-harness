@@ -4,6 +4,7 @@ ADOSkill — Azure DevOps specialist.
 Queries and manages work items, pipelines, repositories, and pull requests
 using MCP ADO integration.
 """
+
 from __future__ import annotations
 
 import json
@@ -12,8 +13,8 @@ from typing import Any
 
 import structlog
 
-from harness.skills.base import BaseSkill, SkillContext, SkillResult
 from harness.providers.llm_provider import LLMProviderError
+from harness.skills.base import BaseSkill, SkillContext, SkillResult
 
 log = structlog.get_logger(__name__)
 
@@ -39,7 +40,7 @@ Diretrizes:
 
 class ADOSkill(BaseSkill):
     """Skill for Azure DevOps integration."""
-    
+
     name = "ado"
     description = (
         "Consulta e gerencia itens do Azure DevOps: work items, tarefas, bugs, "
@@ -49,7 +50,7 @@ class ADOSkill(BaseSkill):
     system_prompt = _SYSTEM_PROMPT
     requires_mcp = True
     mcp_tools = ["wit_work_item", "wit_query", "repo_pull_request", "pipelines_build"]
-    
+
     async def execute(
         self,
         task: str,
@@ -57,20 +58,20 @@ class ADOSkill(BaseSkill):
     ) -> SkillResult:
         """Execute ADO operations."""
         t0 = time.monotonic()
-        
+
         if context.llm is None:
             return SkillResult(
                 content="Erro: LLM não disponível.",
                 skill_name=self.name,
                 success=False,
             )
-        
+
         # Check if MCP ADO is available
-        has_mcp_ado = (
-            context.mcp is not None and
-            any(context.mcp.get_tool_server(t) for t in ["wit_work_item", "wit_query", "search_workitem"])
+        has_mcp_ado = context.mcp is not None and any(
+            context.mcp.get_tool_server(t)
+            for t in ["wit_work_item", "wit_query", "search_workitem"]
         )
-        
+
         if not has_mcp_ado:
             return SkillResult(
                 content=(
@@ -85,16 +86,16 @@ class ADOSkill(BaseSkill):
                 success=True,
                 metadata={"stub": True},
             )
-        
+
         messages: list[dict[str, Any]] = [
             {"role": "system", "content": self.system_prompt},
             *context.history,
             {"role": "user", "content": task},
         ]
-        
+
         tool_defs = await context.mcp.list_all_tools()
         iteration = 0
-        
+
         for iteration in range(_MAX_TOOL_ITERATIONS):
             try:
                 response = await context.llm.complete(
@@ -109,43 +110,47 @@ class ADOSkill(BaseSkill):
                     success=False,
                     metadata={"error": str(exc)},
                 )
-            
+
             if not response.tool_calls:
                 break
-            
-            messages.append({
-                "role": "assistant",
-                "content": response.content,
-                "tool_calls": [
-                    {
-                        "id": tc.id,
-                        "type": "function",
-                        "function": {
-                            "name": tc.name,
-                            "arguments": json.dumps(tc.arguments),
-                        },
-                    }
-                    for tc in response.tool_calls
-                ],
-            })
-            
+
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": response.content,
+                    "tool_calls": [
+                        {
+                            "id": tc.id,
+                            "type": "function",
+                            "function": {
+                                "name": tc.name,
+                                "arguments": json.dumps(tc.arguments),
+                            },
+                        }
+                        for tc in response.tool_calls
+                    ],
+                }
+            )
+
             for tc in response.tool_calls:
                 result = await context.mcp.call_tool(tc.name, tc.arguments)
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tc.id,
-                    "content": result.content,
-                })
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tc.id,
+                        "content": result.content,
+                    }
+                )
                 log.debug(
                     "ado_tool_called",
                     tool=tc.name,
                     is_error=result.is_error,
                     iteration=iteration,
                 )
-        
+
         latency_ms = int((time.monotonic() - t0) * 1000)
         log.info("ado_skill_complete", latency_ms=latency_ms, iterations=iteration + 1)
-        
+
         return SkillResult(
             content=response.content or "(sem resposta)",
             skill_name=self.name,

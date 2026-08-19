@@ -10,33 +10,31 @@ This package handles:
 Usage::
 
     from harness.config import ConfigManager, get_config_dir
-    
-    # Get config directory path
+
     config_dir = get_config_dir()
-    
-    # Load configuration
+
     manager = ConfigManager()
     config = manager.load()
-    
-    # Save configuration
+
     manager.save(config)
 """
+
 from harness.config.loader import ConfigManager, get_config_dir, get_harness_home
 from harness.config.schema import (
-    HarnessConfig,
-    TelegramConfig,
     DatabaseConfig,
+    HarnessConfig,
     LLMConfig,
     MCPServerConfig,
+    TelegramConfig,
 )
 
 __all__ = [
     "ConfigManager",
-    "get_config_dir",
-    "get_harness_home",
-    "HarnessConfig",
-    "TelegramConfig",
     "DatabaseConfig",
+    "HarnessConfig",
     "LLMConfig",
     "MCPServerConfig",
+    "TelegramConfig",
+    "get_config_dir",
+    "get_harness_home",
 ]

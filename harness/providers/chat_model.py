@@ -1,10 +1,11 @@
 """
 LiteLLMChatModel — BaseChatModel adapter wrapping LLMProvider for LangChain/LangGraph compatibility.
 """
+
 from __future__ import annotations
 
 import json
-from typing import Any, List, Optional
+from typing import Any
 
 from langchain_core.callbacks import CallbackManagerForLLMRun
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -16,12 +17,10 @@ from langchain_core.messages import (
     ToolMessage,
 )
 from langchain_core.outputs import ChatGeneration, ChatResult
-from pydantic import ConfigDict, Field, PrivateAttr
-
-from harness.providers.llm_provider import LLMProvider, ToolCall
+from pydantic import ConfigDict, Field
 
 
-def langchain_messages_to_dict(messages: List[BaseMessage]) -> list[dict[str, Any]]:
+def langchain_messages_to_dict(messages: list[BaseMessage]) -> list[dict[str, Any]]:
     """Convert LangChain BaseMessages to OpenAI/LiteLLM dict format."""
     result: list[dict[str, Any]] = []
     for msg in messages:
@@ -38,18 +37,22 @@ def langchain_messages_to_dict(messages: List[BaseMessage]) -> list[dict[str, An
                         "type": "function",
                         "function": {
                             "name": tc["name"],
-                            "arguments": json.dumps(tc["args"]) if isinstance(tc["args"], dict) else str(tc["args"]),
+                            "arguments": json.dumps(tc["args"])
+                            if isinstance(tc["args"], dict)
+                            else str(tc["args"]),
                         },
                     }
                     for tc in msg.tool_calls
                 ]
             result.append(item)
         elif isinstance(msg, ToolMessage):
-            result.append({
-                "role": "tool",
-                "tool_call_id": msg.tool_call_id,
-                "content": str(msg.content),
-            })
+            result.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": msg.tool_call_id,
+                    "content": str(msg.content),
+                }
+            )
         else:
             # Fallback
             result.append({"role": "user", "content": str(msg.content)})
@@ -65,7 +68,7 @@ class LiteLLMChatModel(BaseChatModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     provider: Any = Field(...)
-    bound_tools: Optional[list[dict[str, Any]]] = Field(default=None)
+    bound_tools: list[dict[str, Any]] | None = Field(default=None)
 
     @property
     def _llm_type(self) -> str:
@@ -73,7 +76,7 @@ class LiteLLMChatModel(BaseChatModel):
 
     def bind_tools(
         self,
-        tools: List[Any],
+        tools: list[Any],
         **kwargs: Any,
     ) -> LiteLLMChatModel:
         """Bind tools to the model."""
@@ -92,15 +95,17 @@ class LiteLLMChatModel(BaseChatModel):
                         parameters = args_schema.model_json_schema()
                     elif hasattr(args_schema, "schema"):
                         parameters = args_schema.schema()
-                formatted_tools.append({
-                    "type": "function",
-                    "function": {
-                        "name": tool.name,
-                        "description": tool.description,
-                        "parameters": parameters,
-                    },
-                })
-        
+                formatted_tools.append(
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": tool.name,
+                            "description": tool.description,
+                            "parameters": parameters,
+                        },
+                    }
+                )
+
         return LiteLLMChatModel(
             provider=self.provider,
             bound_tools=formatted_tools,
@@ -108,20 +113,21 @@ class LiteLLMChatModel(BaseChatModel):
 
     def _generate(
         self,
-        messages: List[BaseMessage],
-        stop: Optional[List[str]] = None,
-        run_manager: Optional[CallbackManagerForLLMRun] = None,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: CallbackManagerForLLMRun | None = None,
         **kwargs: Any,
     ) -> ChatResult:
         """Synchronous generation wrapper (runs async event loop internally if called sync)."""
         import asyncio
+
         return asyncio.run(self._agenerate(messages, stop, run_manager, **kwargs))
 
     async def _agenerate(
         self,
-        messages: List[BaseMessage],
-        stop: Optional[List[str]] = None,
-        run_manager: Optional[Any] = None,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: Any | None = None,
         **kwargs: Any,
     ) -> ChatResult:
         """Async generation using underlying LLMProvider."""
@@ -135,12 +141,14 @@ class LiteLLMChatModel(BaseChatModel):
 
         tool_calls: list[dict[str, Any]] = []
         for tc in llm_response.tool_calls:
-            tool_calls.append({
-                "name": tc.name,
-                "args": tc.arguments,
-                "id": tc.id,
-                "type": "tool_call",
-            })
+            tool_calls.append(
+                {
+                    "name": tc.name,
+                    "args": tc.arguments,
+                    "id": tc.id,
+                    "type": "tool_call",
+                }
+            )
 
         ai_message = AIMessage(
             content=llm_response.content or "",

@@ -4,29 +4,31 @@ Channel abstractions.
 :class:`BaseChannel` defines the interface every channel must implement.
 :class:`IncomingMessage` is the normalised message format passed to the handler.
 """
+
 from __future__ import annotations
 
 import asyncio
 from abc import ABC, abstractmethod
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Awaitable, Callable
+from typing import Any
 
 
 @dataclass
 class IncomingMessage:
     """
     Channel-agnostic representation of an inbound message.
-    
+
     For multimodal messages (e.g., images), the channel stores image data
     in raw["images"] as a list of base64 data URLs:
-    
+
         raw = {
             "images": ["data:image/jpeg;base64,..."],
             "image_count": 1,
             ...
         }
-    
+
     The handler is responsible for converting this to the LLM provider's
     expected multimodal format.
     """
@@ -39,12 +41,12 @@ class IncomingMessage:
     # Original payload from the channel — kept for channel-specific features
     # For multimodal: raw["images"] contains list of base64 data URLs
     raw: dict[str, Any] = field(default_factory=dict, repr=False)
-    
+
     @property
     def has_images(self) -> bool:
         """Check if this message contains images."""
         return bool(self.raw.get("images"))
-    
+
     @property
     def images(self) -> list[str]:
         """Get list of image data URLs (base64 encoded)."""

@@ -17,6 +17,7 @@ Usage by the AI::
         context=skill_context,
     )
 """
+
 from __future__ import annotations
 
 import structlog
@@ -24,7 +25,6 @@ import structlog
 from harness.skills.base import BaseSkill, SkillContext, SkillResult
 
 log = structlog.get_logger(__name__)
-
 
 _SYSTEM_PROMPT = """\
 Você é um assistente especializado em executar comandos de terminal.
@@ -53,7 +53,7 @@ class ShellSkill(BaseSkill):
     """
     Skill for executing shell commands with sandbox protection.
     """
-    
+
     name = "shell"
     description = (
         "Executa comandos de terminal/shell no sistema. "
@@ -62,7 +62,7 @@ class ShellSkill(BaseSkill):
     )
     system_prompt = _SYSTEM_PROMPT
     requires_mcp = False  # Uses native subprocess, not MCP
-    
+
     async def execute(
         self,
         task: str,
@@ -70,43 +70,42 @@ class ShellSkill(BaseSkill):
     ) -> SkillResult:
         """
         Execute a shell command.
-        
+
         The task should be the shell command to execute.
-        
+
         :param task: The shell command to run.
         :param context: Skill context with LLM and other resources.
         :returns: SkillResult with command output.
         """
         from harness.core.sandbox import Sandbox
         from harness.soul import load_soul
-        
+
         command = task.strip()
-        
+
         if not command:
             return SkillResult(
                 content="Nenhum comando especificado.",
                 skill_name=self.name,
                 success=False,
             )
-        
+
         # Load soul for sandbox configuration
         # TODO: Pass soul via context.metadata instead of loading here
         soul = context.metadata.get("soul")
         if soul is None:
             soul = load_soul("config/soul.yaml")
-        
+
         sandbox = Sandbox(soul)
-        
-        # Check permission
+
         permission = sandbox.check_command(command)
-        
+
         if permission.level.value == "blocked":
             return SkillResult(
                 content=permission.message or f"Comando bloqueado: {command}",
                 skill_name=self.name,
                 success=False,
             )
-        
+
         if permission.requires_confirmation:
             return SkillResult(
                 content="",
@@ -116,10 +115,9 @@ class ShellSkill(BaseSkill):
                 confirmation_message=permission.message,
                 metadata={"pending_command": command},
             )
-        
-        # Execute the command
+
         result = await sandbox.execute(command, timeout=30.0)
-        
+
         # Format output
         if result.success:
             output = f"```\n$ {command}\n{result.output}\n```"
@@ -127,7 +125,7 @@ class ShellSkill(BaseSkill):
                 output += f"\n(exit code: {result.return_code})"
         else:
             output = f"❌ Comando falhou:\n```\n$ {command}\n{result.stderr or result.stdout}\n```"
-        
+
         return SkillResult(
             content=output,
             skill_name=self.name,
@@ -139,7 +137,7 @@ class ShellSkill(BaseSkill):
                 "stderr_len": len(result.stderr),
             },
         )
-    
+
     async def execute_with_confirmation(
         self,
         command: str,
@@ -147,30 +145,30 @@ class ShellSkill(BaseSkill):
     ) -> SkillResult:
         """
         Execute a command that was previously pending confirmation.
-        
+
         Call this after the user confirms they want to run the command.
-        
+
         :param command: The confirmed command to run.
         :param context: Skill context.
         :returns: SkillResult with command output.
         """
         from harness.core.sandbox import Sandbox
         from harness.soul import load_soul
-        
+
         soul = context.metadata.get("soul")
         if soul is None:
             soul = load_soul("config/soul.yaml")
-        
+
         sandbox = Sandbox(soul)
-        
+
         log.info("executing_confirmed_command", command=command)
         result = await sandbox.execute(command, timeout=30.0)
-        
+
         if result.success:
             output = f"✅ Comando executado:\n```\n$ {command}\n{result.output}\n```"
         else:
             output = f"❌ Comando falhou:\n```\n$ {command}\n{result.stderr or result.stdout}\n```"
-        
+
         return SkillResult(
             content=output,
             skill_name=self.name,

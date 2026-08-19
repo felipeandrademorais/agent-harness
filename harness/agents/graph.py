@@ -1,9 +1,11 @@
 """
 graph.py — LangGraph StateGraph builder for Agent Harness.
 """
+
 from __future__ import annotations
 
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 import structlog
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
@@ -35,17 +37,18 @@ def create_agent_node(model: LiteLLMChatModel, soul: Soul | None):
             system_prompt = soul.build_system_prompt()
             messages.insert(0, SystemMessage(content=system_prompt))
 
-        # Check iteration limit
         tool_msg_count = sum(1 for m in messages if isinstance(m, ToolMessage))
         if tool_msg_count >= MAX_GRAPH_STEPS:
             log.warning("max_graph_steps_reached", count=tool_msg_count)
-            summary_prompt = HumanMessage(content="Você atingiu o limite de iterações. Resuma o que foi feito.")
+            summary_prompt = HumanMessage(
+                content="Você atingiu o limite de iterações. Resuma o que foi feito."
+            )
             response = await model.ainvoke(messages + [summary_prompt])
             return {"messages": [response], "final_response": response.content}
 
         # Invoke model with bound tools
         response = await model.ainvoke(messages)
-        
+
         updates: dict[str, Any] = {"messages": [response]}
         if not getattr(response, "tool_calls", None):
             updates["final_response"] = response.content
@@ -77,18 +80,21 @@ async def sandbox_approval_node(state: AgentState) -> dict[str, Any]:
     """Node implementing Human-in-the-Loop via LangGraph interrupt()."""
     messages = state.get("messages", [])
     last_message = messages[-1]
-    
-    pending_tc = last_message.tool_calls[0] if getattr(last_message, "tool_calls", None) else {}
-    
+
+    pending_tc = (
+        last_message.tool_calls[0] if getattr(last_message, "tool_calls", None) else {}
+    )
+
     # Interrupt execution and wait for Telegram user approval
-    approval_result = interrupt({
-        "question": f"Ação perigosa detectada em '{pending_tc.get('name')}'. Deseja autorizar?",
-        "action": pending_tc,
-    })
+    approval_result = interrupt(
+        {
+            "question": f"Ação perigosa detectada em '{pending_tc.get('name')}'. Deseja autorizar?",
+            "action": pending_tc,
+        }
+    )
 
     if isinstance(approval_result, dict) and approval_result.get("approved"):
         log.info("sandbox_action_approved_by_user", tool=pending_tc.get("name"))
-        # Return empty dict to continue with original tool call
         return {"pending_confirmation": None}
     else:
         log.warning("sandbox_action_denied_by_user", tool=pending_tc.get("name"))
@@ -121,7 +127,6 @@ def build_harness_graph(
     # Bind tools to model
     model_with_tools = model.bind_tools(tools)
 
-    # Initialize StateGraph
     builder = StateGraph(AgentState)
 
     # Add Nodes

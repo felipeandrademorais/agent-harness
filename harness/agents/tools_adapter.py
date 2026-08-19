@@ -1,16 +1,18 @@
 """
 tools_adapter — Converts Harness Skills, MCP Tools, and AgentFactory into LangChain BaseTool objects.
 """
+
 from __future__ import annotations
 
 from typing import Any
+
 from langchain_core.tools import BaseTool, StructuredTool
 from pydantic import BaseModel, Field, create_model
 
+from harness.providers.llm_provider import LLMProvider
+from harness.providers.mcp_manager import MCPManager
 from harness.skills.base import BaseSkill, SkillContext
 from harness.skills.registry import SkillRegistry
-from harness.providers.mcp_manager import MCPManager
-from harness.providers.llm_provider import LLMProvider
 from harness.soul.loader import Soul
 
 
@@ -19,8 +21,12 @@ class SkillTaskInput(BaseModel):
 
 
 class SpawnAgentInput(BaseModel):
-    goal: str = Field(..., description="The specific goal for the sub-agent to achieve.")
-    skills: list[str] = Field(default_factory=list, description="List of skill names to give the sub-agent.")
+    goal: str = Field(
+        ..., description="The specific goal for the sub-agent to achieve."
+    )
+    skills: list[str] = Field(
+        default_factory=list, description="List of skill names to give the sub-agent."
+    )
 
 
 def create_skill_tool(
@@ -43,10 +49,7 @@ def create_skill_tool(
         try:
             result = await skill.execute(task, context)
             if result.requires_confirmation:
-                return (
-                    f"[Aguardando confirmação]\n"
-                    f"{result.confirmation_message}"
-                )
+                return f"[Aguardando confirmação]\n{result.confirmation_message}"
             return result.content
         except Exception as exc:
             return f"[Erro ao executar skill '{skill.name}'] {exc}"
@@ -69,7 +72,6 @@ def create_mcp_tool(
     description = func_info.get("description", "MCP Tool")
     params = func_info.get("parameters", {}).get("properties", {})
 
-    # Create dynamic Pydantic schema for tool arguments
     fields: dict[str, Any] = {}
     for p_name, p_info in params.items():
         p_type = p_info.get("type", "string")
@@ -80,7 +82,10 @@ def create_mcp_tool(
             py_type = bool
         elif p_type == "array":
             py_type = list
-        fields[p_name] = (py_type, Field(default=None, description=p_info.get("description", "")))
+        fields[p_name] = (
+            py_type,
+            Field(default=None, description=p_info.get("description", "")),
+        )
 
     schema_model = create_model(f"{name}_schema", **fields) if fields else None
 
@@ -132,12 +137,15 @@ def build_all_langchain_tools(
     # 2. Add MCP tools
     if mcp_manager and mcp_manager.total_tools > 0:
         import asyncio
-        # Get raw definitions
+
         try:
             loop = asyncio.get_event_loop()
             if loop.is_running():
-                # Fetch tools asynchronously
-                raw_mcp_tools = loop.run_until_complete(mcp_manager.list_all_tools()) if not loop.is_running() else []
+                raw_mcp_tools = (
+                    loop.run_until_complete(mcp_manager.list_all_tools())
+                    if not loop.is_running()
+                    else []
+                )
             else:
                 raw_mcp_tools = asyncio.run(mcp_manager.list_all_tools())
         except Exception:

@@ -1,9 +1,10 @@
 """
 Tests for LangGraph StateGraph agent integration in Agent Harness.
 """
-import pytest
+
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langgraph.checkpoint.memory import MemorySaver
 
@@ -47,7 +48,10 @@ def test_langchain_messages_to_dict():
     messages = [
         SystemMessage(content="System prompt"),
         HumanMessage(content="User input"),
-        AIMessage(content="AI response", tool_calls=[{"id": "c1", "name": "fn1", "args": {"a": 1}}]),
+        AIMessage(
+            content="AI response",
+            tool_calls=[{"id": "c1", "name": "fn1", "args": {"a": 1}}],
+        ),
         ToolMessage(content="Tool result", tool_call_id="c1"),
     ]
 
@@ -83,14 +87,21 @@ def test_should_continue():
 
     # Tool calls without confirmation -> tools
     state2: AgentState = {
-        "messages": [AIMessage(content="", tool_calls=[{"id": "1", "name": "ls", "args": {}}])]
+        "messages": [
+            AIMessage(content="", tool_calls=[{"id": "1", "name": "ls", "args": {}}])
+        ]
     }
     assert should_continue(state2) == "tools"
 
     # Tool calls with requires_confirmation -> sandbox_approval
     state3: AgentState = {
         "messages": [
-            AIMessage(content="", tool_calls=[{"id": "1", "name": "rm", "args": {"requires_confirmation": True}}])
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {"id": "1", "name": "rm", "args": {"requires_confirmation": True}}
+                ],
+            )
         ]
     }
     assert should_continue(state3) == "sandbox_approval"
@@ -101,7 +112,9 @@ async def test_langgraph_execution_flow(mock_llm_provider, mock_soul):
     mock_llm_provider.complete.side_effect = [
         LLMResponse(
             content="Invoking skill...",
-            tool_calls=[ToolCall(id="tc_1", name="sample_skill", arguments={"task": "hello"})],
+            tool_calls=[
+                ToolCall(id="tc_1", name="sample_skill", arguments={"task": "hello"})
+            ],
         ),
         LLMResponse(content="Task complete!", tool_calls=[]),
     ]
@@ -110,7 +123,9 @@ async def test_langgraph_execution_flow(mock_llm_provider, mock_soul):
     registry.register(SampleSkill())
 
     model = LiteLLMChatModel(provider=mock_llm_provider)
-    tools = build_all_langchain_tools(registry, None, None, mock_llm_provider, mock_soul)
+    tools = build_all_langchain_tools(
+        registry, None, None, mock_llm_provider, mock_soul
+    )
     checkpointer = MemorySaver()
 
     graph = build_harness_graph(

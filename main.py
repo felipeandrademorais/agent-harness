@@ -12,6 +12,7 @@ Bootstraps all components and starts the Telegram bot:
   8. Wire Agent Factory for spawning sub-agents
   9. Start TelegramChannel with graceful shutdown on SIGINT/SIGTERM
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -28,10 +29,6 @@ load_dotenv()
 import structlog
 import yaml
 
-# ---------------------------------------------------------------------------
-# Logging setup — must happen before any module imports that use structlog
-# ---------------------------------------------------------------------------
-
 
 def _configure_logging() -> None:
     structlog.configure(
@@ -39,7 +36,9 @@ def _configure_logging() -> None:
             structlog.contextvars.merge_contextvars,
             structlog.processors.add_log_level,
             structlog.processors.TimeStamper(fmt="iso"),
-            structlog.dev.ConsoleRenderer() if sys.stderr.isatty() else structlog.processors.JSONRenderer(),
+            structlog.dev.ConsoleRenderer()
+            if sys.stderr.isatty()
+            else structlog.processors.JSONRenderer(),
         ],
         wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
         context_class=dict,
@@ -55,24 +54,15 @@ def _configure_logging() -> None:
 _configure_logging()
 log = structlog.get_logger(__name__)
 
-# ---------------------------------------------------------------------------
-# Component imports (after logging is configured)
-# ---------------------------------------------------------------------------
-
+from harness.agents.factory import AgentFactory
+from harness.agents.primary import PrimaryAgent
 from harness.channels.telegram import TelegramChannel
 from harness.core.dispatcher import Dispatcher
-from harness.agents.primary import PrimaryAgent
-from harness.agents.factory import AgentFactory
+from harness.memory.repository import ConversationRepository
 from harness.providers.llm_provider import LLMProvider
 from harness.providers.mcp_manager import MCPManager
-from harness.memory.repository import ConversationRepository
 from harness.skills.registry import SkillRegistry
 from harness.soul import load_soul
-
-
-# ---------------------------------------------------------------------------
-# Config loading
-# ---------------------------------------------------------------------------
 
 
 def _load_yaml(path: str | Path) -> dict:
@@ -86,33 +76,23 @@ def _load_yaml(path: str | Path) -> dict:
         return yaml.safe_load(fh) or {}
 
 
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
-
-
 async def main() -> None:
     log.info("harness_starting")
 
-    # --- Validate required env vars ---
     _require_env("TELEGRAM_TOKEN")
     _require_env("DATABASE_URL")
 
-    # --- Memory ---
     database_url = os.environ["DATABASE_URL"]
     memory = ConversationRepository()
     await memory.connect(database_url)
     await memory.run_migrations()
     log.info("database_ready", url=_redact(database_url))
 
-    # --- Seed allowed users from ALLOWED_USER_IDS env var ---
     await _seed_allowed_users(memory)
 
-    # --- LLM Provider ---
     llm = LLMProvider.from_env()
     log.info("llm_ready", model=llm.model, api_base=llm.api_base)
 
-    # --- Soul (personality and behaviors) ---
     soul = load_soul("config/soul.yaml")
     log.info(
         "soul_ready",
@@ -121,13 +101,12 @@ async def main() -> None:
         language=soul.language,
     )
 
-    # --- Skills ---
     skills = SkillRegistry()
     skills.load_from_config("config/skills.yaml")
-    
+
     # Load external (user-defined) skills
     external_count = skills.load_external_skills()
-    
+
     log.info(
         "skills_ready",
         count=len(skills),
@@ -135,7 +114,6 @@ async def main() -> None:
         external=external_count,
     )
 
-    # --- MCP Manager ---
     mcp_manager = MCPManager()
     mcp_config = _load_yaml("config/mcp.yaml")
     mcp_servers = mcp_config.get("servers", [])
@@ -149,7 +127,6 @@ async def main() -> None:
     else:
         log.info("mcp_no_servers_configured")
 
-    # --- PrimaryAgent ---
     primary = PrimaryAgent(
         llm_provider=llm,
         soul=soul,
@@ -158,7 +135,6 @@ async def main() -> None:
         mcp_manager=mcp_manager if mcp_manager.total_tools > 0 else None,
     )
 
-    # --- Agent Factory (for spawning sub-agents) ---
     factory = AgentFactory(
         llm=llm,
         skills=skills,
@@ -167,15 +143,12 @@ async def main() -> None:
     primary.set_factory(factory)
     log.info("factory_ready")
 
-    # --- Telegram Channel ---
     token = os.environ["TELEGRAM_TOKEN"]
     channel = TelegramChannel(token=token, memory=memory, skills=skills)
 
-    # --- Dispatcher ---
     dispatcher = Dispatcher(primary=primary, channel=channel, memory=memory)
     channel.set_handler(dispatcher.handle_message)
 
-    # --- Graceful shutdown ---
     stop_event = asyncio.Event()
 
     def _on_signal(*_: object) -> None:
@@ -200,21 +173,18 @@ async def main() -> None:
     try:
         await channel.start(stop_event)
     finally:
-        # Cleanup
         await mcp_manager.disconnect_all()
         await memory.close()
         log.info("harness_stopped")
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
 def _require_env(name: str) -> str:
     value = os.environ.get(name)
     if not value:
-        print(f"ERROR: Required environment variable '{name}' is not set.", file=sys.stderr)
+        print(
+            f"ERROR: Required environment variable '{name}' is not set.",
+            file=sys.stderr,
+        )
         print("Copy .env.example to .env and fill in the values.", file=sys.stderr)
         sys.exit(1)
     return value

@@ -13,6 +13,7 @@ Usage::
     )
     print(response.content)
 """
+
 from __future__ import annotations
 
 import json
@@ -28,11 +29,6 @@ log = structlog.get_logger(__name__)
 
 # Silence LiteLLM's own verbose logging — we handle logging ourselves.
 litellm.suppress_debug_info = True
-
-
-# ---------------------------------------------------------------------------
-# Data classes
-# ---------------------------------------------------------------------------
 
 
 @dataclass
@@ -55,18 +51,8 @@ class LLMResponse:
     raw: Any = field(default=None, repr=False)
 
 
-# ---------------------------------------------------------------------------
-# Exceptions
-# ---------------------------------------------------------------------------
-
-
 class LLMProviderError(Exception):
     """Raised when the LLM provider returns an error or times out."""
-
-
-# ---------------------------------------------------------------------------
-# Provider
-# ---------------------------------------------------------------------------
 
 
 class LLMProvider:
@@ -84,12 +70,8 @@ class LLMProvider:
         self.timeout = timeout
         self._extra: dict[str, Any] = kwargs
 
-    # ------------------------------------------------------------------
-    # Factory
-    # ------------------------------------------------------------------
-
     @classmethod
-    def from_env(cls) -> "LLMProvider":
+    def from_env(cls) -> LLMProvider:
         """
         Build a provider from environment variables.
 
@@ -104,10 +86,6 @@ class LLMProvider:
         api_base = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
         timeout = float(os.environ.get("LLM_TIMEOUT", "120"))
         return cls(model=model, api_base=api_base, timeout=timeout)
-
-    # ------------------------------------------------------------------
-    # Core
-    # ------------------------------------------------------------------
 
     def _build_kwargs(self, tools: list[dict] | None) -> dict[str, Any]:
         """Assemble the kwargs dict for litellm.acompletion."""
@@ -152,7 +130,6 @@ class LLMProvider:
         choice = raw.choices[0]
         message = choice.message
 
-        # Parse tool calls
         tool_calls: list[ToolCall] = []
         if message.tool_calls:
             for tc in message.tool_calls:

@@ -5,6 +5,7 @@ Quick smoke test for LLMProvider against a live Ollama instance.
 Usage:
     python scripts/test_provider.py
 """
+
 import asyncio
 import os
 import sys
@@ -25,7 +26,12 @@ async def main() -> None:
 
     try:
         response = await provider.complete(
-            [{"role": "user", "content": "Responda em uma frase: qual é a capital do Brasil?"}]
+            [
+                {
+                    "role": "user",
+                    "content": "Responda em uma frase: qual é a capital do Brasil?",
+                }
+            ]
         )
     except LLMProviderError as exc:
         print(f"ERROR: {exc}")

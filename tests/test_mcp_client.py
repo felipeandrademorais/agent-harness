@@ -1,12 +1,10 @@
 """Tests for MCPClient."""
-from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from __future__ import annotations
 
 import pytest
 
 from harness.providers.mcp_client import MCPClient, MCPTool, MCPToolResult
-
 
 # ---------------------------------------------------------------------------
 # MCPClient — without a server
@@ -67,7 +65,7 @@ def test_mcp_tool_creation():
         description="Search the web",
         input_schema={"type": "object", "properties": {"q": {"type": "string"}}},
     )
-    
+
     assert tool.name == "search"
     assert tool.description == "Search the web"
     assert "q" in tool.input_schema["properties"]
@@ -76,7 +74,7 @@ def test_mcp_tool_creation():
 def test_mcp_tool_result_success():
     """Test successful MCPToolResult."""
     result = MCPToolResult(content="Search results: ...")
-    
+
     assert result.content == "Search results: ..."
     assert result.is_error is False
 
@@ -84,7 +82,7 @@ def test_mcp_tool_result_success():
 def test_mcp_tool_result_error():
     """Test error MCPToolResult."""
     result = MCPToolResult(content="Connection failed", is_error=True)
-    
+
     assert result.content == "Connection failed"
     assert result.is_error is True
 
@@ -113,8 +111,8 @@ def test_as_llm_tools_preserves_schema():
         "required": ["query"],
     }
     tools = [MCPTool(name="search", description="Search API", input_schema=schema)]
-    
+
     defs = client.as_llm_tools(tools)
-    
+
     assert defs[0]["function"]["parameters"] == schema
     assert defs[0]["function"]["description"] == "Search API"

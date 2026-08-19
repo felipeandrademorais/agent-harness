@@ -4,6 +4,7 @@ CodeReviewSkill — senior code review specialist.
 Reviews code for quality, security, and best practices.
 Can work with or without MCP GitLab integration.
 """
+
 from __future__ import annotations
 
 import json
@@ -12,8 +13,8 @@ from typing import Any
 
 import structlog
 
-from harness.skills.base import BaseSkill, SkillContext, SkillResult
 from harness.providers.llm_provider import LLMProviderError
+from harness.skills.base import BaseSkill, SkillContext, SkillResult
 
 log = structlog.get_logger(__name__)
 
@@ -56,7 +57,7 @@ Regras:
 
 class CodeReviewSkill(BaseSkill):
     """Skill for performing code reviews."""
-    
+
     name = "code_review"
     description = (
         "Realiza code review de merge requests, diffs ou trechos de código. "
@@ -66,7 +67,7 @@ class CodeReviewSkill(BaseSkill):
     system_prompt = _SYSTEM_PROMPT
     requires_mcp = False  # Can work without MCP (inline code review)
     mcp_tools = ["gitlab_get_mr", "gitlab_get_diff", "gitlab_get_file"]
-    
+
     async def execute(
         self,
         task: str,
@@ -74,31 +75,31 @@ class CodeReviewSkill(BaseSkill):
     ) -> SkillResult:
         """
         Execute code review.
-        
+
         If MCP is available, can fetch diffs from GitLab.
         Otherwise, reviews code pasted directly in the task.
         """
         t0 = time.monotonic()
-        
+
         if context.llm is None:
             return SkillResult(
                 content="Erro: LLM não disponível.",
                 skill_name=self.name,
                 success=False,
             )
-        
+
         messages: list[dict[str, Any]] = [
             {"role": "system", "content": self.system_prompt},
             *context.history,
             {"role": "user", "content": task},
         ]
-        
+
         # Check if we have MCP for GitLab
-        has_mcp_gitlab = (
-            context.mcp is not None and 
-            any(context.mcp.get_tool_server(t) for t in ["gitlab_get_mr", "get_merge_request"])
+        has_mcp_gitlab = context.mcp is not None and any(
+            context.mcp.get_tool_server(t)
+            for t in ["gitlab_get_mr", "get_merge_request"]
         )
-        
+
         if not has_mcp_gitlab:
             # No MCP — review inline code or provide guidance
             if len(task) < 100:
@@ -112,7 +113,7 @@ class CodeReviewSkill(BaseSkill):
                     success=True,
                     metadata={"stub": True},
                 )
-            
+
             # User pasted code inline — review without tools
             try:
                 response = await context.llm.complete(messages=messages, tools=None)
@@ -129,11 +130,11 @@ class CodeReviewSkill(BaseSkill):
                     success=False,
                     metadata={"error": str(exc)},
                 )
-        
+
         # With MCP GitLab — use tool calling
         tool_defs = await context.mcp.list_all_tools()
         iteration = 0
-        
+
         for iteration in range(_MAX_TOOL_ITERATIONS):
             try:
                 response = await context.llm.complete(
@@ -148,39 +149,44 @@ class CodeReviewSkill(BaseSkill):
                     success=False,
                     metadata={"error": str(exc)},
                 )
-            
+
             if not response.tool_calls:
                 break
-            
+
             # Add assistant message with tool calls
-            messages.append({
-                "role": "assistant",
-                "content": response.content,
-                "tool_calls": [
-                    {
-                        "id": tc.id,
-                        "type": "function",
-                        "function": {
-                            "name": tc.name,
-                            "arguments": json.dumps(tc.arguments),
-                        },
-                    }
-                    for tc in response.tool_calls
-                ],
-            })
-            
-            # Execute tool calls
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": response.content,
+                    "tool_calls": [
+                        {
+                            "id": tc.id,
+                            "type": "function",
+                            "function": {
+                                "name": tc.name,
+                                "arguments": json.dumps(tc.arguments),
+                            },
+                        }
+                        for tc in response.tool_calls
+                    ],
+                }
+            )
+
             for tc in response.tool_calls:
                 result = await context.mcp.call_tool(tc.name, tc.arguments)
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tc.id,
-                    "content": result.content,
-                })
-        
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tc.id,
+                        "content": result.content,
+                    }
+                )
+
         latency_ms = int((time.monotonic() - t0) * 1000)
-        log.info("code_review_complete", latency_ms=latency_ms, iterations=iteration + 1)
-        
+        log.info(
+            "code_review_complete", latency_ms=latency_ms, iterations=iteration + 1
+        )
+
         return SkillResult(
             content=response.content or "(sem resposta)",
             skill_name=self.name,

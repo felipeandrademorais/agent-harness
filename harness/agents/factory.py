@@ -7,6 +7,7 @@ for complex, multi-step tasks. Each spawned agent:
 - Runs independently with its own LangGraph graph
 - Reports results back to the parent
 """
+
 from __future__ import annotations
 
 import time
@@ -27,7 +28,6 @@ if TYPE_CHECKING:
     from harness.soul.loader import Soul
 
 log = structlog.get_logger(__name__)
-
 
 _SPAWNED_AGENT_PROMPT_TEMPLATE = """\
 Você é um sub-agente especializado com uma tarefa específica.
@@ -57,10 +57,10 @@ class SpawnedAgent:
     def __init__(
         self,
         config: AgentConfig,
-        llm: "LLMProvider",
-        skills: "SkillRegistry",
-        mcp: "MCPManager | None" = None,
-        soul: "Soul | None" = None,
+        llm: LLMProvider,
+        skills: SkillRegistry,
+        mcp: MCPManager | None = None,
+        soul: Soul | None = None,
     ) -> None:
         self.config = config
         self._llm = llm
@@ -76,7 +76,6 @@ class SpawnedAgent:
         system_prompt = self._build_system_prompt()
         chat_model = LiteLLMChatModel(provider=self._llm)
 
-        # Build tools filtered by config.skills
         tools = []
         for skill_name in self.config.skills:
             skill = self._skills.get(skill_name)
@@ -99,13 +98,22 @@ class SpawnedAgent:
                 SystemMessage(content=system_prompt),
                 HumanMessage(content=f"Execute esta tarefa: {self.config.goal}"),
             ]
-            config_run = {"configurable": {"thread_id": f"spawned_{self.config.name}_{int(time.monotonic())}"}}
+            config_run = {
+                "configurable": {
+                    "thread_id": f"spawned_{self.config.name}_{int(time.monotonic())}"
+                }
+            }
 
-            res = await graph.ainvoke({"messages": initial_messages, "user_id": 0}, config=config_run)
+            res = await graph.ainvoke(
+                {"messages": initial_messages, "user_id": 0}, config=config_run
+            )
 
             final_content = res.get("final_response")
             if not final_content and res.get("messages"):
-                final_content = getattr(res["messages"][-1], "content", "(sem resultado)") or "(sem resultado)"
+                final_content = (
+                    getattr(res["messages"][-1], "content", "(sem resultado)")
+                    or "(sem resultado)"
+                )
 
             latency_ms = int((time.monotonic() - t0) * 1000)
             log.info(
@@ -142,7 +150,11 @@ class SpawnedAgent:
             if skill:
                 skill_descriptions.append(f"- **{skill.name}**: {skill.description}")
 
-        skills_desc = "\n".join(skill_descriptions) if skill_descriptions else "(nenhuma skill específica)"
+        skills_desc = (
+            "\n".join(skill_descriptions)
+            if skill_descriptions
+            else "(nenhuma skill específica)"
+        )
         custom = self.config.system_prompt or ""
 
         return _SPAWNED_AGENT_PROMPT_TEMPLATE.format(
@@ -159,10 +171,10 @@ class AgentFactory:
 
     def __init__(
         self,
-        llm: "LLMProvider",
-        skills: "SkillRegistry",
-        mcp: "MCPManager | None" = None,
-        soul: "Soul | None" = None,
+        llm: LLMProvider,
+        skills: SkillRegistry,
+        mcp: MCPManager | None = None,
+        soul: Soul | None = None,
     ) -> None:
         self._llm = llm
         self._skills = skills

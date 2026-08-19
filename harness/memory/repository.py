@@ -2,9 +2,9 @@
 ConversationRepository — asyncpg-backed persistence for conversation history
 and user whitelist.
 """
+
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Any
 
@@ -21,10 +21,6 @@ class ConversationRepository:
 
     def __init__(self) -> None:
         self._pool: asyncpg.Pool | None = None
-
-    # ------------------------------------------------------------------
-    # Lifecycle
-    # ------------------------------------------------------------------
 
     async def connect(self, database_url: str) -> None:
         """Create the connection pool."""
@@ -46,10 +42,6 @@ class ConversationRepository:
         if self._pool is None:
             raise RuntimeError("ConversationRepository.connect() was not called.")
         return self._pool
-
-    # ------------------------------------------------------------------
-    # Migrations
-    # ------------------------------------------------------------------
 
     async def run_migrations(self) -> None:
         """Execute SQL migration files that have not yet been applied."""
@@ -81,10 +73,6 @@ class ConversationRepository:
                 await conn.execute(sql)
                 log.info("migration_applied", version=version)
 
-    # ------------------------------------------------------------------
-    # Whitelist
-    # ------------------------------------------------------------------
-
     async def is_allowed(self, user_id: int) -> bool:
         """Return True if *user_id* is in the allowed_users table."""
         pool = self._ensure_pool()
@@ -108,13 +96,7 @@ class ConversationRepository:
                 username,
             )
 
-    # ------------------------------------------------------------------
-    # Conversation history
-    # ------------------------------------------------------------------
-
-    async def get_history(
-        self, user_id: int, limit: int = 20
-    ) -> list[dict[str, Any]]:
+    async def get_history(self, user_id: int, limit: int = 20) -> list[dict[str, Any]]:
         """
         Return the last *limit* messages for *user_id*, oldest-first,
         in the OpenAI messages format: [{role, content}, ...].
@@ -163,6 +145,4 @@ class ConversationRepository:
         """Delete all conversation history for a user (useful for /reset)."""
         pool = self._ensure_pool()
         async with pool.acquire() as conn:
-            await conn.execute(
-                "DELETE FROM conversations WHERE user_id = $1", user_id
-            )
+            await conn.execute("DELETE FROM conversations WHERE user_id = $1", user_id)

@@ -2,6 +2,7 @@
 Tests for ConversationRepository.
 Uses unittest.mock to avoid needing a live database.
 """
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -10,10 +11,10 @@ import pytest
 
 from harness.memory.repository import ConversationRepository
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_pool(fetchval_return=None, fetch_return=None):
     """Build a mock asyncpg pool whose acquire() returns a usable connection."""
@@ -33,6 +34,7 @@ def _make_pool(fetchval_return=None, fetch_return=None):
 # ---------------------------------------------------------------------------
 # connect / close
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_connect_creates_pool():
@@ -57,6 +59,7 @@ async def test_close_calls_pool_close():
 # is_allowed
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_is_allowed_returns_true_when_row_exists():
     pool, conn = _make_pool(fetchval_return=1)
@@ -77,6 +80,7 @@ async def test_is_allowed_returns_false_when_no_row():
 # ---------------------------------------------------------------------------
 # append_message / get_history
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_append_message_executes_insert():
@@ -118,6 +122,7 @@ async def test_get_history_empty_returns_empty_list():
 # ---------------------------------------------------------------------------
 # ensure_pool guard
 # ---------------------------------------------------------------------------
+
 
 def test_ensure_pool_raises_if_not_connected():
     repo = ConversationRepository()

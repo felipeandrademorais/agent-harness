@@ -6,6 +6,7 @@ PrimaryAgent, and returns the response back to the channel. All error
 handling lives here so neither the channel nor the agent needs to worry
 about it.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -22,14 +23,15 @@ log = structlog.get_logger(__name__)
 
 _TIMEOUT_SECONDS = 120
 _TIMEOUT_MESSAGE = "⏱ A IA demorou muito para responder. Tente novamente."
-_ERROR_MESSAGE = "⚠️ Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente."
+_ERROR_MESSAGE = (
+    "⚠️ Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente."
+)
 
 
 class MessageProcessor(Protocol):
     """Protocol for anything that can process an IncomingMessage."""
-    
-    async def process(self, message: IncomingMessage) -> str:
-        ...
+
+    async def process(self, message: IncomingMessage) -> str: ...
 
 
 class Dispatcher:
@@ -43,7 +45,7 @@ class Dispatcher:
         self,
         primary: MessageProcessor,
         channel: BaseChannel,
-        memory: "ConversationRepository",
+        memory: ConversationRepository,
         *,
         # Legacy support: also accept 'orchestrator' kwarg
         orchestrator: MessageProcessor | None = None,
@@ -52,7 +54,7 @@ class Dispatcher:
         self._processor = primary if primary is not None else orchestrator
         if self._processor is None:
             raise ValueError("Either 'primary' or 'orchestrator' must be provided")
-        
+
         self._channel = channel
         self._memory = memory
 
@@ -79,7 +81,7 @@ class Dispatcher:
                 self._processor.process(message),
                 timeout=_TIMEOUT_SECONDS,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             log.warning("dispatcher_timeout", user_id=message.user_id)
             response = _TIMEOUT_MESSAGE
         except Exception as exc:

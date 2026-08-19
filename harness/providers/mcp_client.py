@@ -16,9 +16,9 @@ Usage (SSE)::
     async with MCPClient(server_url="http://localhost:8000/sse") as client:
         ...
 """
+
 from __future__ import annotations
 
-import json
 import time
 from dataclasses import dataclass, field
 from typing import Any
@@ -26,11 +26,6 @@ from typing import Any
 import structlog
 
 log = structlog.get_logger(__name__)
-
-
-# ---------------------------------------------------------------------------
-# Data classes
-# ---------------------------------------------------------------------------
 
 
 @dataclass
@@ -50,11 +45,6 @@ class MCPToolResult:
     is_error: bool = False
 
 
-# ---------------------------------------------------------------------------
-# Client
-# ---------------------------------------------------------------------------
-
-
 class MCPClient:
     """
     Async context-manager wrapper around the MCP Python SDK v2.
@@ -70,7 +60,9 @@ class MCPClient:
         server_url: str | None = None,
     ) -> None:
         if not server_command and not server_url:
-            raise ValueError("Provide either server_command (stdio) or server_url (SSE).")
+            raise ValueError(
+                "Provide either server_command (stdio) or server_url (SSE)."
+            )
 
         self._server_command = server_command
         self._server_url = server_url
@@ -78,11 +70,7 @@ class MCPClient:
         self._cm: Any = None  # the transport context manager
         self._tools_cache: list[MCPTool] | None = None
 
-    # ------------------------------------------------------------------
-    # Context manager
-    # ------------------------------------------------------------------
-
-    async def __aenter__(self) -> "MCPClient":
+    async def __aenter__(self) -> MCPClient:
         try:
             await self._connect()
         except Exception as exc:
@@ -90,23 +78,21 @@ class MCPClient:
             # Stay functional in stub mode — callers check _session is None
         return self
 
-    async def __aexit__(self, *exc_info: Any) -> None:
+    async def __aexit__(self, *exc_info: object) -> None:
         await self._disconnect()
 
-    # ------------------------------------------------------------------
-    # Internal connect / disconnect
-    # ------------------------------------------------------------------
-
     async def _connect(self) -> None:
-        from mcp import ClientSession  # type: ignore[import]
+        from mcp import ClientSession
 
         if self._server_command:
-            from mcp.client.stdio import StdioServerParameters, stdio_client  # type: ignore[import]
+            from mcp.client.stdio import StdioServerParameters, stdio_client
 
-            params = StdioServerParameters(command=self._server_command[0], args=self._server_command[1:])
+            params = StdioServerParameters(
+                command=self._server_command[0], args=self._server_command[1:]
+            )
             self._cm = stdio_client(params)
         else:
-            from mcp.client.sse import sse_client  # type: ignore[import]
+            from mcp.client.sse import sse_client
 
             self._cm = sse_client(url=self._server_url)
 
@@ -127,10 +113,6 @@ class MCPClient:
         self._session = None
         self._cm = None
         self._tools_cache = None
-
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
 
     async def list_tools(self) -> list[MCPTool]:
         """Return the tools exposed by the connected MCP server."""
@@ -166,7 +148,9 @@ class MCPClient:
             result = await self._session.call_tool(name, arguments)
         except Exception as exc:
             log.error("mcp_tool_call_failed", tool=name, error=str(exc))
-            return MCPToolResult(content=f"Error calling '{name}': {exc}", is_error=True)
+            return MCPToolResult(
+                content=f"Error calling '{name}': {exc}", is_error=True
+            )
 
         latency_ms = int((time.monotonic() - t0) * 1000)
 
@@ -181,7 +165,9 @@ class MCPClient:
         content = "\n".join(content_parts) if content_parts else "(no output)"
         is_error = bool(result.isError)
 
-        log.debug("mcp_tool_called", tool=name, latency_ms=latency_ms, is_error=is_error)
+        log.debug(
+            "mcp_tool_called", tool=name, latency_ms=latency_ms, is_error=is_error
+        )
         return MCPToolResult(content=content, is_error=is_error)
 
     def as_llm_tools(self, tools: list[MCPTool]) -> list[dict[str, Any]]:
@@ -194,7 +180,8 @@ class MCPClient:
                 "function": {
                     "name": t.name,
                     "description": t.description,
-                    "parameters": t.input_schema or {
+                    "parameters": t.input_schema
+                    or {
                         "type": "object",
                         "properties": {},
                     },

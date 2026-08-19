@@ -18,15 +18,15 @@ Usage::
 
     await manager.disconnect_all()
 """
+
 from __future__ import annotations
 
-import asyncio
 from dataclasses import dataclass, field
 from typing import Any
 
 import structlog
 
-from harness.providers.mcp_client import MCPClient, MCPTool, MCPToolResult
+from harness.providers.mcp_client import MCPClient, MCPToolResult
 
 log = structlog.get_logger(__name__)
 
@@ -56,10 +56,6 @@ class MCPManager:
         # Cached tools in OpenAI format
         self._tools_cache: list[dict[str, Any]] | None = None
 
-    # ------------------------------------------------------------------
-    # Connection management
-    # ------------------------------------------------------------------
-
     async def connect_all(self, configs: list[dict[str, Any]]) -> None:
         """
         Connect to all configured MCP servers.
@@ -85,7 +81,6 @@ class MCPManager:
             )
             await self._connect_server(server_config)
 
-        # Build tool routing table
         await self._build_tool_routing()
 
         log.info(
@@ -108,7 +103,9 @@ class MCPManager:
                     return
                 client = MCPClient(server_url=config.url)
             else:
-                log.warning("mcp_server_unknown_type", name=config.name, type=config.type)
+                log.warning(
+                    "mcp_server_unknown_type", name=config.name, type=config.type
+                )
                 return
 
             await client.__aenter__()
@@ -153,10 +150,6 @@ class MCPManager:
         self._tool_routing.clear()
         self._tools_cache = None
         log.info("mcp_manager_disconnected")
-
-    # ------------------------------------------------------------------
-    # Tool interface (for Orchestrator)
-    # ------------------------------------------------------------------
 
     async def list_all_tools(self) -> list[dict[str, Any]]:
         """
@@ -203,10 +196,6 @@ class MCPManager:
             )
 
         return await client.call_tool(name, arguments)
-
-    # ------------------------------------------------------------------
-    # Utility
-    # ------------------------------------------------------------------
 
     def get_tool_server(self, tool_name: str) -> str | None:
         """Return the server name that provides a given tool."""

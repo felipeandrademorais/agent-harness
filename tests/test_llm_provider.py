@@ -1,4 +1,5 @@
 """Tests for LLMProvider — mocks litellm.acompletion."""
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -6,7 +7,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from harness.providers.llm_provider import LLMProvider, LLMProviderError, ToolCall
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -69,11 +69,15 @@ def test_from_env_uses_defaults(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_complete_returns_content():
-    provider = LLMProvider(model="ollama_chat/llama3.1", api_base="http://localhost:11434")
+    provider = LLMProvider(
+        model="ollama_chat/llama3.1", api_base="http://localhost:11434"
+    )
     raw = _make_raw_response(content="I am an AI.")
 
     with patch("litellm.acompletion", new_callable=AsyncMock, return_value=raw):
-        response = await provider.complete([{"role": "user", "content": "Who are you?"}])
+        response = await provider.complete(
+            [{"role": "user", "content": "Who are you?"}]
+        )
 
     assert response.content == "I am an AI."
     assert response.tool_calls == []
@@ -82,10 +86,14 @@ async def test_complete_returns_content():
 
 @pytest.mark.asyncio
 async def test_complete_injects_api_base_for_ollama():
-    provider = LLMProvider(model="ollama_chat/llama3.1", api_base="http://localhost:11434")
+    provider = LLMProvider(
+        model="ollama_chat/llama3.1", api_base="http://localhost:11434"
+    )
     raw = _make_raw_response()
 
-    with patch("litellm.acompletion", new_callable=AsyncMock, return_value=raw) as mock_call:
+    with patch(
+        "litellm.acompletion", new_callable=AsyncMock, return_value=raw
+    ) as mock_call:
         await provider.complete([{"role": "user", "content": "test"}])
 
     call_kwargs = mock_call.call_args[1]
@@ -97,7 +105,9 @@ async def test_complete_does_not_inject_api_base_for_openai():
     provider = LLMProvider(model="gpt-4o", api_base=None)
     raw = _make_raw_response()
 
-    with patch("litellm.acompletion", new_callable=AsyncMock, return_value=raw) as mock_call:
+    with patch(
+        "litellm.acompletion", new_callable=AsyncMock, return_value=raw
+    ) as mock_call:
         await provider.complete([{"role": "user", "content": "test"}])
 
     call_kwargs = mock_call.call_args[1]
@@ -118,11 +128,22 @@ async def test_complete_parses_tool_calls():
     with patch("litellm.acompletion", new_callable=AsyncMock, return_value=raw):
         response = await provider.complete(
             [{"role": "user", "content": "search python"}],
-            tools=[{"type": "function", "function": {"name": "search", "description": "...", "parameters": {}}}],
+            tools=[
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "search",
+                        "description": "...",
+                        "parameters": {},
+                    },
+                }
+            ],
         )
 
     assert len(response.tool_calls) == 1
-    assert response.tool_calls[0] == ToolCall(id="tc_1", name="search", arguments={"query": "python"})
+    assert response.tool_calls[0] == ToolCall(
+        id="tc_1", name="search", arguments={"query": "python"}
+    )
 
 
 @pytest.mark.asyncio
@@ -147,6 +168,10 @@ async def test_complete_handles_malformed_tool_call_arguments():
 async def test_complete_raises_llm_provider_error_on_exception():
     provider = LLMProvider(model="ollama_chat/llama3.1")
 
-    with patch("litellm.acompletion", new_callable=AsyncMock, side_effect=RuntimeError("connection refused")):
+    with patch(
+        "litellm.acompletion",
+        new_callable=AsyncMock,
+        side_effect=RuntimeError("connection refused"),
+    ):
         with pytest.raises(LLMProviderError, match="connection refused"):
             await provider.complete([{"role": "user", "content": "hi"}])

@@ -1,14 +1,15 @@
 """Tests for TelegramChannel — whitelist middleware and message splitting."""
+
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime, timezone
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from harness.channels.telegram import TelegramChannel, WhitelistMiddleware, _split_message
-from harness.channels.base import IncomingMessage
-
+from harness.channels.telegram import (
+    WhitelistMiddleware,
+    _split_message,
+)
 
 # ---------------------------------------------------------------------------
 # _split_message

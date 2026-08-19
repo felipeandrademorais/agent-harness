@@ -10,12 +10,13 @@ Features:
 - Long messages (>4096 chars) are split automatically.
 - Multimodal support: processes photos and sends them to the LLM.
 """
+
 from __future__ import annotations
 
 import asyncio
 import base64
 import io
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 import structlog
@@ -48,7 +49,7 @@ class WhitelistMiddleware:
     Passes the check for /start so new users can receive an informative reply.
     """
 
-    def __init__(self, memory: "ConversationRepository") -> None:
+    def __init__(self, memory: ConversationRepository) -> None:
         self._memory = memory
 
     async def __call__(self, handler, event: Update, data: dict[str, Any]):
@@ -77,8 +78,8 @@ class TelegramChannel(BaseChannel):
     def __init__(
         self,
         token: str,
-        memory: "ConversationRepository",
-        skills: "SkillRegistry | None" = None,
+        memory: ConversationRepository,
+        skills: SkillRegistry | None = None,
     ) -> None:
         super().__init__()
         self._token = token
@@ -98,12 +99,7 @@ class TelegramChannel(BaseChannel):
         self._dp.message.register(self._handle_reset, Command("reset"))
         # Handle photos (with or without caption)
         self._dp.message.register(self._handle_photo, F.photo)
-        # Handle text messages
         self._dp.message.register(self._handle_message, F.text)
-
-    # ------------------------------------------------------------------
-    # BaseChannel interface
-    # ------------------------------------------------------------------
 
     async def start(self, stop_event: asyncio.Event) -> None:
         """Start long-polling until *stop_event* is set."""
@@ -136,10 +132,6 @@ class TelegramChannel(BaseChannel):
         except Exception as exc:
             log.warning("telegram_typing_error", user_id=user_id, error=str(exc))
 
-    # ------------------------------------------------------------------
-    # Command handlers
-    # ------------------------------------------------------------------
-
     async def _handle_start(self, message: Message) -> None:
         user = message.from_user
         name = user.first_name if user else "usuário"
@@ -162,8 +154,7 @@ class TelegramChannel(BaseChannel):
     async def _handle_help(self, message: Message) -> None:
         if self._skills and self._skills.list_all():
             skills_text = "\n".join(
-                f"• *{s.name}* — {s.description}"
-                for s in self._skills.list_all()
+                f"• *{s.name}* — {s.description}" for s in self._skills.list_all()
             )
             text = f"*Skills disponíveis:*\n\n{skills_text}"
         else:
@@ -187,7 +178,7 @@ class TelegramChannel(BaseChannel):
             username=user.username,
             text=message.text,
             channel="telegram",
-            timestamp=datetime.now(tz=timezone.utc),
+            timestamp=datetime.now(tz=UTC),
             raw={
                 "message_id": message.message_id,
                 "chat_id": message.chat.id,
@@ -209,26 +200,26 @@ class TelegramChannel(BaseChannel):
             return
 
         user = message.from_user
-        
+
         # Get the caption (text accompanying the photo) or default prompt
         caption = message.caption or "Descreva esta imagem."
-        
+
         # Download the largest photo
         photos = message.photo
         if not photos:
             return
-        
+
         # photos is sorted by size, last is largest
         largest_photo: PhotoSize = photos[-1]
-        
+
         try:
             # Download the photo
             image_bytes = await self._download_photo(largest_photo.file_id)
-            
+
             # Convert to base64 data URL
             image_b64 = base64.b64encode(image_bytes).decode("utf-8")
             image_data_url = f"data:image/jpeg;base64,{image_b64}"
-            
+
             log.info(
                 "telegram_photo_received",
                 user_id=user.id,
@@ -237,19 +228,18 @@ class TelegramChannel(BaseChannel):
                 width=largest_photo.width,
                 height=largest_photo.height,
             )
-            
+
         except Exception as exc:
             log.error("telegram_photo_download_error", error=str(exc))
             await message.answer("❌ Erro ao processar a imagem. Tente novamente.")
             return
-        
-        # Create multimodal message
+
         incoming = IncomingMessage(
             user_id=user.id,
             username=user.username,
             text=caption,
             channel="telegram",
-            timestamp=datetime.now(tz=timezone.utc),
+            timestamp=datetime.now(tz=UTC),
             raw={
                 "message_id": message.message_id,
                 "chat_id": message.chat.id,
@@ -265,17 +255,12 @@ class TelegramChannel(BaseChannel):
         file = await self._bot.get_file(file_id)
         if not file.file_path:
             raise ValueError("No file_path in Telegram response")
-        
+
         # Download file content
         file_bytes = io.BytesIO()
         await self._bot.download_file(file.file_path, file_bytes)
         file_bytes.seek(0)
         return file_bytes.read()
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 
 
 def _split_message(text: str, max_len: int = _TELEGRAM_MAX_LEN) -> list[str]:
@@ -291,7 +276,7 @@ def _split_message(text: str, max_len: int = _TELEGRAM_MAX_LEN) -> list[str]:
         if split_at > max_len // 2:
             chunk = candidate[:split_at]
             # Advance past the newline so it is not included in the next chunk
-            text = text[split_at + 1:]
+            text = text[split_at + 1 :]
         else:
             chunk = candidate
             text = text[max_len:]

@@ -13,15 +13,16 @@ that defines a class inheriting from `BaseSkill`.
 
 ```python
 """Example user-defined skill."""
+
 from harness.skills.base import BaseSkill, SkillResult, SkillContext
 
 
 class HelloWorldSkill(BaseSkill):
     """A simple example skill that says hello."""
-    
+
     name = "hello_world"
     description = "A friendly greeting skill that demonstrates custom skills"
-    
+
     async def execute(self, task: str, context: SkillContext) -> SkillResult:
         """Execute the hello world skill."""
         name = task.strip() or "World"

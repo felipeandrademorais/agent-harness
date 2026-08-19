@@ -4,14 +4,15 @@ DailyReportSkill — generates a daily meeting report.
 This skill uses the LLM to produce a structured daily report in pt-BR
 based on context about commits and tasks.
 """
+
 from __future__ import annotations
 
 import time
 
 import structlog
 
-from harness.skills.base import BaseSkill, SkillContext, SkillResult
 from harness.providers.llm_provider import LLMProviderError
+from harness.skills.base import BaseSkill, SkillContext, SkillResult
 
 log = structlog.get_logger(__name__)
 
@@ -50,7 +51,7 @@ pergunte quais tarefas foram trabalhadas e se há commits a incluir.
 
 class DailyReportSkill(BaseSkill):
     """Skill for generating daily meeting reports."""
-    
+
     name = "daily_report"
     description = (
         "Gera relatório de daily meeting com tarefas concluídas, em andamento e "
@@ -59,7 +60,7 @@ class DailyReportSkill(BaseSkill):
     )
     system_prompt = _SYSTEM_PROMPT
     requires_mcp = False
-    
+
     async def execute(
         self,
         task: str,
@@ -67,20 +68,20 @@ class DailyReportSkill(BaseSkill):
     ) -> SkillResult:
         """Generate a daily report based on the task description."""
         t0 = time.monotonic()
-        
+
         if context.llm is None:
             return SkillResult(
                 content="Erro: LLM não disponível.",
                 skill_name=self.name,
                 success=False,
             )
-        
+
         messages = [
             {"role": "system", "content": self.system_prompt},
             *context.history,
             {"role": "user", "content": task},
         ]
-        
+
         try:
             response = await context.llm.complete(messages=messages, tools=None)
         except LLMProviderError as exc:
@@ -91,14 +92,14 @@ class DailyReportSkill(BaseSkill):
                 success=False,
                 metadata={"error": str(exc)},
             )
-        
+
         latency_ms = int((time.monotonic() - t0) * 1000)
         log.info(
             "daily_report_complete",
             latency_ms=latency_ms,
             tokens=response.usage.get("total_tokens", 0),
         )
-        
+
         return SkillResult(
             content=response.content or "(sem resposta)",
             skill_name=self.name,

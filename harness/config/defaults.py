@@ -3,6 +3,7 @@ Default configuration templates for Agent Harness.
 
 These templates are used when creating a new configuration via `ah init`.
 """
+
 from __future__ import annotations
 
 # Default config.json content
@@ -61,7 +62,7 @@ DEFAULT_MCP = {
 }
 
 # Default soul.md content
-DEFAULT_SOUL_MD = '''---
+DEFAULT_SOUL_MD = """---
 name: Harness
 version: "1.0"
 mood: professional
@@ -150,4 +151,4 @@ Sou um assistente de IA com capacidades agênticas. Posso:
 - Use as ferramentas disponíveis proativamente.
 - Se precisar de mais informações, pergunte.
 - Se uma abordagem falhar, tente alternativas antes de desistir.
-'''
+"""

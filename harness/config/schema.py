@@ -3,18 +3,18 @@ Pydantic models for Agent Harness configuration.
 
 These models define the structure of config.json and provide validation.
 """
+
 from __future__ import annotations
 
-from typing import Optional
 from pydantic import BaseModel, Field
 
 
 class TelegramConfig(BaseModel):
     """Telegram bot configuration."""
-    
+
     model_config = {"validate_assignment": True}
-    
-    token: Optional[str] = Field(
+
+    token: str | None = Field(
         default=None,
         description="Bot token from @BotFather",
     )
@@ -26,10 +26,10 @@ class TelegramConfig(BaseModel):
 
 class DatabaseConfig(BaseModel):
     """PostgreSQL database configuration."""
-    
+
     model_config = {"validate_assignment": True}
-    
-    url: Optional[str] = Field(
+
+    url: str | None = Field(
         default=None,
         description="PostgreSQL connection URL",
     )
@@ -43,9 +43,9 @@ class DatabaseConfig(BaseModel):
 
 class LLMConfig(BaseModel):
     """LLM provider configuration."""
-    
+
     model_config = {"validate_assignment": True}
-    
+
     provider: str = Field(
         default="ollama",
         description="LLM provider: ollama, openai, anthropic",
@@ -58,7 +58,7 @@ class LLMConfig(BaseModel):
         default="http://localhost:11434",
         description="API base URL (for Ollama or custom endpoints)",
     )
-    api_key: Optional[str] = Field(
+    api_key: str | None = Field(
         default=None,
         description="API key (for OpenAI, Anthropic, etc.)",
     )
@@ -77,7 +77,7 @@ class LLMConfig(BaseModel):
 
 class MCPServerConfig(BaseModel):
     """MCP server configuration."""
-    
+
     name: str = Field(
         description="Server name for identification",
     )
@@ -89,7 +89,7 @@ class MCPServerConfig(BaseModel):
         default_factory=list,
         description="Command to start the server (for stdio type)",
     )
-    url: Optional[str] = Field(
+    url: str | None = Field(
         default=None,
         description="Server URL (for http/websocket types)",
     )
@@ -105,7 +105,7 @@ class MCPServerConfig(BaseModel):
 
 class ContextLimitsConfig(BaseModel):
     """Context window limits for different scenarios."""
-    
+
     max_history_messages: int = Field(
         default=50,
         ge=1,
@@ -124,7 +124,7 @@ class ContextLimitsConfig(BaseModel):
 
 class DaemonConfig(BaseModel):
     """Daemon mode configuration."""
-    
+
     heartbeat_interval: int = Field(
         default=60,
         ge=10,
@@ -139,7 +139,7 @@ class DaemonConfig(BaseModel):
         default=True,
         description="Send Telegram notification if daemon dies",
     )
-    telegram_admin_id: Optional[int] = Field(
+    telegram_admin_id: int | None = Field(
         default=None,
         description="Telegram user ID to notify on failure",
     )
@@ -148,17 +148,17 @@ class DaemonConfig(BaseModel):
 class HarnessConfig(BaseModel):
     """
     Main configuration for Agent Harness.
-    
+
     Stored in ~/.agent-harness/config.json
     """
-    
+
     # Environment: dev or prod
     env: str = Field(
         default="dev",
         pattern="^(dev|prod)$",
         description="Environment: dev (foreground) or prod (daemon)",
     )
-    
+
     # Sub-configurations
     telegram: TelegramConfig = Field(
         default_factory=TelegramConfig,
@@ -180,7 +180,7 @@ class HarnessConfig(BaseModel):
         default_factory=DaemonConfig,
         description="Daemon mode settings",
     )
-    
+
     # Paths (relative to config dir)
     soul_file: str = Field(
         default="soul.md",
@@ -202,11 +202,11 @@ class HarnessConfig(BaseModel):
         default="data",
         description="Directory for runtime data",
     )
-    
-    def get_value(self, key: str) -> Optional[str]:
+
+    def get_value(self, key: str) -> str | None:
         """
         Get the value of a field by dot notation key.
-        
+
         :param key: Key in dot notation (e.g., "telegram.token", "database.url").
         :returns: Field value or None if not found.
         """
@@ -216,17 +216,17 @@ class HarnessConfig(BaseModel):
             obj = getattr(obj, part, None)
             if obj is None:
                 return None
-        
+
         return getattr(obj, parts[-1], None)
 
 
 class MCPConfig(BaseModel):
     """
     MCP servers configuration.
-    
+
     Stored in ~/.agent-harness/mcp.json
     """
-    
+
     servers: list[MCPServerConfig] = Field(
         default_factory=list,
         description="List of MCP servers",

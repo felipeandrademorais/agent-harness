@@ -13,6 +13,7 @@ Usage::
     ah config show      # Show config
     ah skills list      # List skills
 """
+
 from __future__ import annotations
 
 import typer
@@ -54,18 +55,21 @@ def main(
 ) -> None:
     """
     Agent Harness — Multi-agent AI system.
-    
+
     Run [bold cyan]ah init[/bold cyan] to get started.
     """
-    pass
 
 
 # Register subcommands
-app.command(name="init", help="Setup wizard — configure Agent Harness.")(init.init_command)
+app.command(name="init", help="Setup wizard — configure Agent Harness.")(
+    init.init_command
+)
 app.command(name="start", help="Start the Agent Harness bot.")(start.start_command)
 app.command(name="stop", help="Stop the running bot.")(start.stop_command)
 app.command(name="status", help="Show bot status.")(start.status_command)
-app.command(name="doctor", help="Health check — verify all components.")(doctor.doctor_command)
+app.command(name="doctor", help="Health check — verify all components.")(
+    doctor.doctor_command
+)
 
 # Register subcommand groups
 app.add_typer(config_cmd.app, name="config", help="Manage configuration.")
