@@ -1,0 +1,67 @@
+# MCP Servers Configuration
+#
+# This file configures MCP (Model Context Protocol) servers that provide
+# tools to the PrimaryAgent. These are external processes that the harness
+# connects to via stdio or SSE.
+#
+# Server config fields:
+#   name    — unique identifier for logging/debugging
+#   type    — "stdio" (subprocess) or "sse" (HTTP)
+#   command — command + args for stdio servers (list format)
+#   url     — endpoint URL for sse servers
+#   env     — optional environment variables (dict)
+#
+# To add a new MCP server:
+#   1. Install the server package (usually via npm or pip)
+#   2. Add the configuration below
+#   3. Restart the harness
+
+servers:
+  # ---------------------------------------------------------------------------
+  # Filesystem — read/write files, list directories
+  # ---------------------------------------------------------------------------
+  # Install: npm install -g @modelcontextprotocol/server-filesystem
+  - name: filesystem
+    type: stdio
+    command:
+      - npx
+      - -y
+      - "@modelcontextprotocol/server-filesystem"
+      - /Users/admin/Documents  # allowed root directory
+
+  # ---------------------------------------------------------------------------
+  # Web Search via Brave Search API
+  # ---------------------------------------------------------------------------
+  # Install: npm install -g @anthropic/mcp-server-brave-search
+  # - name: web_search
+  #   type: stdio
+  #   command:
+  #     - npx
+  #     - -y
+  #     - "@anthropic/mcp-server-brave-search"
+  #   env:
+  #     BRAVE_API_KEY: "${BRAVE_API_KEY}"
+
+  # ---------------------------------------------------------------------------
+  # GitHub API access
+  # ---------------------------------------------------------------------------
+  # Install: npm install -g @modelcontextprotocol/server-github
+  # - name: github
+  #   type: stdio
+  #   command:
+  #     - npx
+  #     - -y
+  #     - "@modelcontextprotocol/server-github"
+  #   env:
+  #     GITHUB_TOKEN: "${GITHUB_TOKEN}"
+
+  # ---------------------------------------------------------------------------
+  # Memory/Notes persistence
+  # ---------------------------------------------------------------------------
+  # Install: npm install -g @anthropic/mcp-server-memory
+  # - name: memory
+  #   type: stdio
+  #   command:
+  #     - npx
+  #     - -y
+  #     - "@anthropic/mcp-server-memory"

@@ -1,0 +1,45 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "agent-harness"
+version = "0.1.0"
+description = "Multi-agent AI harness with Telegram, Ollama, MCP and PostgreSQL"
+requires-python = ">=3.11"
+dependencies = [
+    "aiogram==3.30.0",
+    "litellm>=1.72.6,<2.0",
+    "langgraph>=0.2.20,<0.3.0",
+    "langchain-core>=0.3.0,<0.4.0",
+    "mcp==1.29.0",
+    "asyncpg==0.30.0",
+    "pydantic>=2.11.0,<2.14",
+    "python-dotenv==1.1.1",
+    "structlog==25.4.0",
+    "pyyaml==6.0.2",
+    "aiohttp>=3.10.0",
+    "rich==14.0.0",
+    "typer>=0.12.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.3.0",
+    "pytest-asyncio==0.25.0",
+    "pytest-mock==3.14.0",
+]
+
+[project.scripts]
+ah = "harness.cli:app"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+filterwarnings = [
+    "ignore:The default value of `allowed_objects`:langchain_core._api.deprecation.LangChainPendingDeprecationWarning",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["harness"]

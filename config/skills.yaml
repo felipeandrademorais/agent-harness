@@ -1,0 +1,44 @@
+# Skills Configuration
+#
+# Skills are reusable capabilities that the AI can invoke.
+# Each skill has a dedicated system prompt and may orchestrate multiple tool calls.
+#
+# Built-in skills are in harness/skills/builtin/
+# User-defined skills can be placed in ./skills/ or ~/.harness/skills/
+
+skills:
+  # Shell execution with sandbox protection
+  - name: shell
+    class: harness.skills.builtin.shell.ShellSkill
+    enabled: true
+    description: "Execute shell commands with safety sandbox"
+
+  # Daily meeting report generator
+  - name: daily_report
+    class: harness.skills.builtin.daily_report.DailyReportSkill
+    enabled: true
+    description: "Generate daily meeting reports from tasks and commits"
+
+  # Code review specialist
+  - name: code_review
+    class: harness.skills.builtin.code_review.CodeReviewSkill
+    enabled: true
+    description: "Review code for quality, security, and best practices"
+
+  # Azure DevOps integration
+  - name: ado
+    class: harness.skills.builtin.ado.ADOSkill
+    enabled: true
+    description: "Query and manage Azure DevOps work items, pipelines, and PRs"
+
+  # SQL query specialist
+  - name: sql
+    class: harness.skills.builtin.sql.SQLSkill
+    enabled: true
+    description: "Execute SQL queries and analyze database schemas (read-only)"
+
+# User-defined skills paths
+# Skills in these directories will be loaded automatically
+user_skill_paths:
+  - "./skills"
+  - "~/.harness/skills"
