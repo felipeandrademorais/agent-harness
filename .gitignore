@@ -11,3 +11,4 @@ venv/
 *.log
 .aislop/
 .omc/
+.ruff_cache/
