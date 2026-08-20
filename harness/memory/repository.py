@@ -77,9 +77,7 @@ class ConversationRepository:
         """Return True if *user_id* is in the allowed_users table."""
         pool = self._ensure_pool()
         async with pool.acquire() as conn:
-            row = await conn.fetchval(
-                "SELECT 1 FROM allowed_users WHERE user_id = $1", user_id
-            )
+            row = await conn.fetchval("SELECT 1 FROM allowed_users WHERE user_id = $1", user_id)
         return row is not None
 
     async def add_allowed_user(self, user_id: int, username: str | None = None) -> None:

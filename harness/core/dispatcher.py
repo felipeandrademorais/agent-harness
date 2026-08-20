@@ -24,9 +24,7 @@ log = structlog.get_logger(__name__)
 
 _TIMEOUT_SECONDS = 120
 _TIMEOUT_MESSAGE = "⏱ A IA demorou muito para responder. Tente novamente."
-_ERROR_MESSAGE = (
-    "⚠️ Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente."
-)
+_ERROR_MESSAGE = "⚠️ Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente."
 
 
 class MessageProcessor(Protocol):

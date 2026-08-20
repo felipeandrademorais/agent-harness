@@ -170,9 +170,7 @@ class CodeReviewSkill(BaseSkill):
                 )
 
         latency_ms = int((time.monotonic() - t0) * 1000)
-        log.info(
-            "code_review_complete", latency_ms=latency_ms, iterations=iteration + 1
-        )
+        log.info("code_review_complete", latency_ms=latency_ms, iterations=iteration + 1)
 
         return SkillResult(
             content=(response.content if response else None) or "(sem resposta)",
@@ -213,8 +211,7 @@ class CodeReviewSkill(BaseSkill):
         ]
 
         has_mcp_gitlab = context.mcp is not None and any(
-            context.mcp.get_tool_server(t)
-            for t in ["gitlab_get_mr", "get_merge_request"]
+            context.mcp.get_tool_server(t) for t in ["gitlab_get_mr", "get_merge_request"]
         )
 
         if not has_mcp_gitlab:

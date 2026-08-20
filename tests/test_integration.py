@@ -557,9 +557,7 @@ class TestAgentSpawningIntegration:
         tool_messages = [m for m in messages if isinstance(m, ToolMessage)]
 
         # At least one tool message should contain sub-agent result
-        assert len(tool_messages) > 0, (
-            "Expected tool messages from spawn_agent execution"
-        )
+        assert len(tool_messages) > 0, "Expected tool messages from spawn_agent execution"
 
 
 # =============================================================================

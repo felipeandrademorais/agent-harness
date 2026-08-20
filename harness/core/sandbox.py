@@ -150,9 +150,7 @@ class Sandbox:
 
         if self._is_always_blocked(command):
             log.warning("command_blocked", command=command)
-            return PermissionResult.block(
-                f"⛔ Comando bloqueado por segurança: `{command}`"
-            )
+            return PermissionResult.block(f"⛔ Comando bloqueado por segurança: `{command}`")
 
         if self._soul.requires_confirmation(command):
             log.info("command_requires_confirmation", command=command)

@@ -42,13 +42,7 @@ def _redact_value(key: str, value: Any) -> Any:
         return "***"
 
     # Redact database URLs (contain passwords)
-    if (
-        final_key == "url"
-        and value
-        and isinstance(value, str)
-        and "@" in value
-        and "://" in value
-    ):
+    if final_key == "url" and value and isinstance(value, str) and "@" in value and "://" in value:
         # postgresql://user:pass@host:port/db -> postgresql://***@host:port/db
         prefix, rest = value.split("://", 1)
         if "@" in rest:
@@ -157,9 +151,7 @@ def show_command(
 
     # Formatted tree output
     console.print()
-    console.print(
-        f"[bold cyan]Configuration[/bold cyan] [dim]({manager.config_file})[/dim]"
-    )
+    console.print(f"[bold cyan]Configuration[/bold cyan] [dim]({manager.config_file})[/dim]")
     console.print()
 
     tree = Tree("[bold]config.json[/bold]")

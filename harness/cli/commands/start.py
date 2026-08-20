@@ -248,9 +248,7 @@ def stop_command(
                 time.sleep(1)
             else:
                 # Timeout reached, force kill
-                console.print(
-                    f"[yellow]Timeout after {timeout}s, sending SIGKILL...[/yellow]"
-                )
+                console.print(f"[yellow]Timeout after {timeout}s, sending SIGKILL...[/yellow]")
                 os.kill(pid, signal.SIGKILL)
 
         # Clean up PID file
@@ -288,9 +286,7 @@ def status_command() -> None:
                 minutes, seconds = divmod(remainder, 60)
 
                 console.print(f"[dim]Uptime: {hours}h {minutes}m {seconds}s[/dim]")
-                console.print(
-                    f"[dim]Memory: {proc.memory_info().rss / 1024 / 1024:.1f} MB[/dim]"
-                )
+                console.print(f"[dim]Memory: {proc.memory_info().rss / 1024 / 1024:.1f} MB[/dim]")
             except BOUNDARY_ERRORS as exc:
                 console.print(f"[dim]Could not read process stats: {exc}[/dim]")
 

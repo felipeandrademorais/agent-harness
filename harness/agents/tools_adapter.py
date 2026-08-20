@@ -22,9 +22,7 @@ class SkillTaskInput(BaseModel):
 
 
 class SpawnAgentInput(BaseModel):
-    goal: str = Field(
-        ..., description="The specific goal for the sub-agent to achieve."
-    )
+    goal: str = Field(..., description="The specific goal for the sub-agent to achieve.")
     skills: list[str] = Field(
         default_factory=list, description="List of skill names to give the sub-agent."
     )

@@ -87,9 +87,7 @@ def test_should_continue():
 
     # Tool calls without confirmation -> tools
     state2: AgentState = {
-        "messages": [
-            AIMessage(content="", tool_calls=[{"id": "1", "name": "ls", "args": {}}])
-        ]
+        "messages": [AIMessage(content="", tool_calls=[{"id": "1", "name": "ls", "args": {}}])]
     }
     assert should_continue(state2) == "tools"
 
@@ -98,9 +96,7 @@ def test_should_continue():
         "messages": [
             AIMessage(
                 content="",
-                tool_calls=[
-                    {"id": "1", "name": "rm", "args": {"requires_confirmation": True}}
-                ],
+                tool_calls=[{"id": "1", "name": "rm", "args": {"requires_confirmation": True}}],
             )
         ]
     }
@@ -112,9 +108,7 @@ async def test_langgraph_execution_flow(mock_llm_provider, mock_soul):
     mock_llm_provider.complete.side_effect = [
         LLMResponse(
             content="Invoking skill...",
-            tool_calls=[
-                ToolCall(id="tc_1", name="sample_skill", arguments={"task": "hello"})
-            ],
+            tool_calls=[ToolCall(id="tc_1", name="sample_skill", arguments={"task": "hello"})],
         ),
         LLMResponse(content="Task complete!", tool_calls=[]),
     ]
@@ -123,9 +117,7 @@ async def test_langgraph_execution_flow(mock_llm_provider, mock_soul):
     registry.register(SampleSkill())
 
     model = LiteLLMChatModel(provider=mock_llm_provider)
-    tools = build_all_langchain_tools(
-        registry, None, None, mock_llm_provider, mock_soul
-    )
+    tools = build_all_langchain_tools(registry, None, None, mock_llm_provider, mock_soul)
     checkpointer = MemorySaver()
 
     graph = build_harness_graph(

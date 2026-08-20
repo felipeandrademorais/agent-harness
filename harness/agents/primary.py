@@ -101,13 +101,9 @@ class PrimaryAgent:
 
         # 3. Handle message content (including multimodal)
         if message.raw.get("images"):
-            content_parts: list[dict[str, Any]] = [
-                {"type": "text", "text": message.text}
-            ]
+            content_parts: list[dict[str, Any]] = [{"type": "text", "text": message.text}]
             for image_data in message.raw["images"]:
-                content_parts.append(
-                    {"type": "image_url", "image_url": {"url": image_data}}
-                )
+                content_parts.append({"type": "image_url", "image_url": {"url": image_data}})
             user_msg = HumanMessage(content=content_parts)
         else:
             user_msg = HumanMessage(content=message.text)
@@ -131,9 +127,7 @@ class PrimaryAgent:
             final_response = res.get("final_response")
             if not final_response and res.get("messages"):
                 last_msg = res["messages"][-1]
-                final_response = (
-                    getattr(last_msg, "content", "(sem resposta)") or "(sem resposta)"
-                )
+                final_response = getattr(last_msg, "content", "(sem resposta)") or "(sem resposta)"
 
             if not final_response:
                 final_response = "(sem resposta)"
@@ -152,9 +146,7 @@ class PrimaryAgent:
                 else:
                     dict_messages.append({"role": "user", "content": message.text})
 
-                final_response = await self._agentic_loop(
-                    dict_messages, tools, message.user_id
-                )
+                final_response = await self._agentic_loop(dict_messages, tools, message.user_id)
             except LLMProviderError:
                 return "Desculpe, estou temporariamente indisponível. Tente novamente."
 

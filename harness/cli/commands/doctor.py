@@ -329,9 +329,7 @@ def doctor_command(
         console.print()
         console.print("Ready to start: [cyan]ah start[/cyan]")
     else:
-        console.print(
-            f"[bold yellow]{passed_count}/{total_count} checks passed.[/bold yellow]"
-        )
+        console.print(f"[bold yellow]{passed_count}/{total_count} checks passed.[/bold yellow]")
         console.print()
         console.print("Fix the issues above, then run [cyan]ah doctor[/cyan] again.")
         console.print("For initial setup, run: [cyan]ah init[/cyan]")

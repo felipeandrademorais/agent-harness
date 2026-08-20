@@ -217,9 +217,7 @@ def add_command(
     source_path = Path(source)
 
     # Check if it's a git URL
-    is_git = (
-        source.startswith("git@") or source.endswith(".git") or "github.com" in source
-    )
+    is_git = source.startswith("git@") or source.endswith(".git") or "github.com" in source
 
     if is_git:
         # Clone from git
@@ -245,9 +243,7 @@ def add_command(
             console.print(f"[red]Git clone failed: {e.stderr.decode()}[/red]")
             raise typer.Exit(1)
         except FileNotFoundError:
-            console.print(
-                "[red]Git not found. Install git to clone repositories.[/red]"
-            )
+            console.print("[red]Git not found. Install git to clone repositories.[/red]")
             raise typer.Exit(1)
 
     elif source_path.exists():

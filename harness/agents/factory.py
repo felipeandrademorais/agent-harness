@@ -100,9 +100,7 @@ class SpawnedAgent:
                 HumanMessage(content=f"Execute esta tarefa: {self.config.goal}"),
             ]
             config_run = {
-                "configurable": {
-                    "thread_id": f"spawned_{self.config.name}_{int(time.monotonic())}"
-                }
+                "configurable": {"thread_id": f"spawned_{self.config.name}_{int(time.monotonic())}"}
             }
 
             res = await graph.ainvoke(
@@ -112,8 +110,7 @@ class SpawnedAgent:
             final_content = res.get("final_response")
             if not final_content and res.get("messages"):
                 final_content = (
-                    getattr(res["messages"][-1], "content", "(sem resultado)")
-                    or "(sem resultado)"
+                    getattr(res["messages"][-1], "content", "(sem resultado)") or "(sem resultado)"
                 )
 
             latency_ms = int((time.monotonic() - t0) * 1000)
@@ -152,9 +149,7 @@ class SpawnedAgent:
                 skill_descriptions.append(f"- **{skill.name}**: {skill.description}")
 
         skills_desc = (
-            "\n".join(skill_descriptions)
-            if skill_descriptions
-            else "(nenhuma skill específica)"
+            "\n".join(skill_descriptions) if skill_descriptions else "(nenhuma skill específica)"
         )
         custom = self.config.system_prompt or ""
 

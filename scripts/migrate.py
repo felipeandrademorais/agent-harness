@@ -18,9 +18,7 @@ from harness.memory.repository import ConversationRepository
 async def main() -> None:
     database_url = os.environ.get("DATABASE_URL")
     if not database_url:
-        print(
-            "ERROR: DATABASE_URL is not set. Copy .env.example to .env and fill in values."
-        )
+        print("ERROR: DATABASE_URL is not set. Copy .env.example to .env and fill in values.")
         sys.exit(1)
 
     print(f"Connecting to {database_url} ...")

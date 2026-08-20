@@ -81,9 +81,7 @@ async def sandbox_approval_node(state: AgentState) -> dict[str, Any]:
     messages = state.get("messages", [])
     last_message = messages[-1]
 
-    pending_tc = (
-        last_message.tool_calls[0] if getattr(last_message, "tool_calls", None) else {}
-    )
+    pending_tc = last_message.tool_calls[0] if getattr(last_message, "tool_calls", None) else {}
 
     # Interrupt execution and wait for Telegram user approval
     approval_result = interrupt(

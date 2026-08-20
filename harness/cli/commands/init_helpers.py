@@ -125,9 +125,7 @@ Responda sempre em {{language}}.
 {capabilities}
 """
 
-    frontmatter_yaml = yaml.dump(
-        frontmatter, allow_unicode=True, default_flow_style=False
-    )
+    frontmatter_yaml = yaml.dump(frontmatter, allow_unicode=True, default_flow_style=False)
     return f"---\n{frontmatter_yaml}---\n\n{body}"
 
 
@@ -216,9 +214,7 @@ def prompt_ollama(env_values: dict[str, str]) -> tuple[str, str]:
         )
         default_model = env_values.get("OLLAMA_MODEL", f"ollama_chat/{models[0]}")
     else:
-        console.print(
-            "[yellow]  Could not connect to Ollama. Make sure it's running.[/yellow]"
-        )
+        console.print("[yellow]  Could not connect to Ollama. Make sure it's running.[/yellow]")
         default_model = env_values.get("OLLAMA_MODEL", "ollama_chat/llama3.1")
 
     ollama_model = typer.prompt("Model (LiteLLM format)", default=default_model)

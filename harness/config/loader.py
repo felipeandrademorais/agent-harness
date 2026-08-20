@@ -149,9 +149,7 @@ class ConfigManager:
                 config = HarnessConfig.model_validate(data)
                 log.info("config_loaded", path=str(self.config_file))
             except _CONFIG_LOAD_ERRORS as e:
-                log.error(
-                    "config_load_failed", path=str(self.config_file), error=str(e)
-                )
+                log.error("config_load_failed", path=str(self.config_file), error=str(e))
                 config = HarnessConfig()
         else:
             log.info("config_not_found_using_defaults", path=str(self.config_file))
@@ -236,9 +234,7 @@ class ConfigManager:
                     data = json.load(f)
                 return MCPConfig.model_validate(data)
             except _CONFIG_LOAD_ERRORS as e:
-                log.error(
-                    "mcp_config_load_failed", path=str(self.mcp_file), error=str(e)
-                )
+                log.error("mcp_config_load_failed", path=str(self.mcp_file), error=str(e))
 
         return MCPConfig()
 

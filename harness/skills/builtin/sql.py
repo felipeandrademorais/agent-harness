@@ -120,14 +120,10 @@ class SQLSkill(BaseSkill):
             content = response.content or "(sem resposta)"
 
             needs_warning = any(
-                kw in task.lower()
-                for kw in ("execute", "roda", "executar", "resultado", "retorna")
+                kw in task.lower() for kw in ("execute", "roda", "executar", "resultado", "retorna")
             )
             if needs_warning:
-                content = (
-                    "⚠️ *Query não testada — MCP PostgreSQL não configurado.*\n\n"
-                    + content
-                )
+                content = "⚠️ *Query não testada — MCP PostgreSQL não configurado.*\n\n" + content
 
             return SkillResult(
                 content=content,
@@ -176,9 +172,7 @@ class SQLSkill(BaseSkill):
 
             for tc in response.tool_calls:
                 if _is_write_operation(tc.name, tc.arguments):
-                    log.warning(
-                        "sql_skill_blocked_write", tool=tc.name, args=tc.arguments
-                    )
+                    log.warning("sql_skill_blocked_write", tool=tc.name, args=tc.arguments)
                     messages.append(
                         {
                             "role": "tool",
@@ -237,8 +231,7 @@ class SQLSkill(BaseSkill):
         ]
 
         has_mcp_postgres = context.mcp is not None and any(
-            context.mcp.get_tool_server(t)
-            for t in ["postgres_query", "query", "list_tables"]
+            context.mcp.get_tool_server(t) for t in ["postgres_query", "query", "list_tables"]
         )
 
         if not has_mcp_postgres:

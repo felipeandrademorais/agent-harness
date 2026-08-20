@@ -104,9 +104,7 @@ class MCPManager:
                     return
                 client = MCPClient(server_url=config.url)
             else:
-                log.warning(
-                    "mcp_server_unknown_type", name=config.name, type=config.type
-                )
+                log.warning("mcp_server_unknown_type", name=config.name, type=config.type)
                 return
 
             await client.__aenter__()

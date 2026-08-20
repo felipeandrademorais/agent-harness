@@ -299,7 +299,7 @@ from harness.skills.base import BaseSkill, SkillResult, SkillContext
 class TestExternalSkill(BaseSkill):
     name = "test_external"
     description = "A test external skill"
-    
+
     async def execute(self, task: str, context: SkillContext) -> SkillResult:
         return SkillResult(content=f"External: {task}", skill_name=self.name)
 """)
@@ -312,9 +312,7 @@ class TestExternalSkill(BaseSkill):
         assert skill is not None
         assert skill.name == "test_external"
 
-    def test_load_external_skills_ignores_underscore_files(
-        self, tmp_path: Path
-    ) -> None:
+    def test_load_external_skills_ignores_underscore_files(self, tmp_path: Path) -> None:
         """Files starting with _ are ignored."""
         # Create a file that should be ignored
         ignored_file = tmp_path / "_private.py"
@@ -324,7 +322,7 @@ from harness.skills.base import BaseSkill, SkillResult, SkillContext
 class IgnoredSkill(BaseSkill):
     name = "ignored"
     description = "Should not be loaded"
-    
+
     async def execute(self, task: str, context: SkillContext) -> SkillResult:
         return SkillResult(content="", skill_name=self.name)
 """)
@@ -351,14 +349,14 @@ from harness.skills.base import BaseSkill, SkillResult, SkillContext
 class SkillOne(BaseSkill):
     name = "skill_one"
     description = "First skill"
-    
+
     async def execute(self, task: str, context: SkillContext) -> SkillResult:
         return SkillResult(content="one", skill_name=self.name)
 
 class SkillTwo(BaseSkill):
     name = "skill_two"
     description = "Second skill"
-    
+
     async def execute(self, task: str, context: SkillContext) -> SkillResult:
         return SkillResult(content="two", skill_name=self.name)
 """)

@@ -154,15 +154,11 @@ class TestPrimaryAgentProcess:
             {"role": "user", "content": "Previous message"},
             {"role": "assistant", "content": "Previous response"},
         ]
-        mock_llm.complete.return_value = LLMResponse(
-            content="Current response", tool_calls=[]
-        )
+        mock_llm.complete.return_value = LLMResponse(content="Current response", tool_calls=[])
 
         await primary_agent.process(incoming_message)
 
-        mock_memory.get_history.assert_called_once_with(
-            incoming_message.user_id, limit=20
-        )
+        mock_memory.get_history.assert_called_once_with(incoming_message.user_id, limit=20)
 
     @pytest.mark.asyncio
     async def test_conversation_persisted(
@@ -329,9 +325,7 @@ class TestPrimaryAgentErrorHandling:
 
         response = await primary_agent.process(incoming_message)
 
-        assert (
-            "indisponível" in response.lower() or "tente novamente" in response.lower()
-        )
+        assert "indisponível" in response.lower() or "tente novamente" in response.lower()
 
     @pytest.mark.asyncio
     async def test_empty_response_handled(

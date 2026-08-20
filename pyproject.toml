@@ -28,6 +28,7 @@ dev = [
     "pytest==8.3.0",
     "pytest-asyncio==0.25.0",
     "pytest-mock==3.14.0",
+    "ruff>=0.16.0",
 ]
 
 [project.scripts]
@@ -43,3 +44,65 @@ filterwarnings = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["harness"]
+
+[tool.hatch.build.targets.wheel.shared-data]
+"config" = "share/agent-harness/config"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "N",      # pep8-naming
+    "UP",     # pyupgrade
+    "B",      # flake8-bugbear
+    "A",      # flake8-builtins
+    "S",      # flake8-bandit (security)
+    "T20",    # flake8-print
+    "SIM",    # flake8-simplify
+    "PLW",    # pylint warnings
+    "PLR",    # pylint refactor
+    "RUF",    # ruff-specific rules
+]
+ignore = [
+    "S101",    # assert usage (OK in tests)
+    "S105",    # possible hardcoded password (false positives in config schemas)
+    "S310",    # audit url open (intentional in HTTP clients)
+    "S602",    # subprocess with shell=True (intentional usage in skills)
+    "S603",    # subprocess call with shell=False (intentional in service.py)
+    "S606",    # no shell start process (intentional)
+    "S607",    # partial executable path in subprocess (intentional)
+    "PLR0913", # too many arguments (common in constructors)
+    "PLR2004", # magic values (too noisy for a project this size)
+    "T201",    # print (used in CLI commands deliberately)
+    "E402",    # module-level import not at top (intentional in main.py after config)
+    "E501",    # line too long (handled by formatter where possible)
+    "PLR0911", # too many return statements
+    "PLR0912", # too many branches
+    "PLR0915", # too many statements
+    "PLR0917", # too many positional arguments
+    "PLW2901", # redefined loop variable (common pattern for .strip() in loops)
+    "RUF005",  # concatenation vs unpacking (stylistic preference)
+    "RUF006",  # dangling collection in asyncio.gather (false positive)
+    "RUF059",  # unused unpacked assignment (intentional destructuring)
+    "SIM105",  # use contextlib.suppress (stylistic preference)
+    "SIM108",  # use ternary (can reduce readability)
+    "A002",    # shadowing builtin (e.g. `id` in pydantic models)
+    "B007",    # unused loop variable (common in loop-count patterns)
+    "B027",    # empty method in abstract class (intentional base stubs)
+    "B905",    # zip without strict (python 3.10+ pattern, not required)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S", "PLR", "B011"]
+"main.py" = ["E402"]
+"harness/cli/**/*.py" = ["B904"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

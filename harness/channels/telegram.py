@@ -110,9 +110,7 @@ class TelegramChannel(BaseChannel):
     async def start(self, stop_event: asyncio.Event) -> None:
         """Start long-polling until *stop_event* is set."""
         log.info("telegram_polling_start")
-        polling_task = asyncio.create_task(
-            self._dp.start_polling(self._bot, handle_signals=False)
-        )
+        polling_task = asyncio.create_task(self._dp.start_polling(self._bot, handle_signals=False))
         await stop_event.wait()
         await self._dp.stop_polling()
         polling_task.cancel()

@@ -69,15 +69,11 @@ def test_from_env_uses_defaults(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_complete_returns_content():
-    provider = LLMProvider(
-        model="ollama_chat/llama3.1", api_base="http://localhost:11434"
-    )
+    provider = LLMProvider(model="ollama_chat/llama3.1", api_base="http://localhost:11434")
     raw = _make_raw_response(content="I am an AI.")
 
     with patch("litellm.acompletion", new_callable=AsyncMock, return_value=raw):
-        response = await provider.complete(
-            [{"role": "user", "content": "Who are you?"}]
-        )
+        response = await provider.complete([{"role": "user", "content": "Who are you?"}])
 
     assert response.content == "I am an AI."
     assert response.tool_calls == []
@@ -86,14 +82,10 @@ async def test_complete_returns_content():
 
 @pytest.mark.asyncio
 async def test_complete_injects_api_base_for_ollama():
-    provider = LLMProvider(
-        model="ollama_chat/llama3.1", api_base="http://localhost:11434"
-    )
+    provider = LLMProvider(model="ollama_chat/llama3.1", api_base="http://localhost:11434")
     raw = _make_raw_response()
 
-    with patch(
-        "litellm.acompletion", new_callable=AsyncMock, return_value=raw
-    ) as mock_call:
+    with patch("litellm.acompletion", new_callable=AsyncMock, return_value=raw) as mock_call:
         await provider.complete([{"role": "user", "content": "test"}])
 
     call_kwargs = mock_call.call_args[1]
@@ -105,9 +97,7 @@ async def test_complete_does_not_inject_api_base_for_openai():
     provider = LLMProvider(model="gpt-4o", api_base=None)
     raw = _make_raw_response()
 
-    with patch(
-        "litellm.acompletion", new_callable=AsyncMock, return_value=raw
-    ) as mock_call:
+    with patch("litellm.acompletion", new_callable=AsyncMock, return_value=raw) as mock_call:
         await provider.complete([{"role": "user", "content": "test"}])
 
     call_kwargs = mock_call.call_args[1]

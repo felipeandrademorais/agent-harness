@@ -79,9 +79,7 @@ class TestBlockedCommands:
         """rm -rf / is always blocked."""
         for cmd in ["rm -rf /", "rm -rf /*", "rm -rf / --no-preserve-root"]:
             result = sandbox.check_command(cmd)
-            assert result.level == PermissionLevel.BLOCKED, (
-                f"Expected {cmd} to be blocked"
-            )
+            assert result.level == PermissionLevel.BLOCKED, f"Expected {cmd} to be blocked"
 
     def test_fork_bomb_blocked(self, sandbox: Sandbox) -> None:
         """Fork bombs are blocked."""

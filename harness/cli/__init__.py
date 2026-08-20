@@ -19,7 +19,7 @@ from __future__ import annotations
 import typer
 from rich.console import Console
 
-from harness.cli.commands import config_cmd, doctor, init, skills, start
+from harness.cli.commands import config_cmd, doctor, init, service, skills, start
 
 __version__ = "0.1.0"
 
@@ -61,19 +61,25 @@ def main(
 
 
 # Register subcommands
-app.command(name="init", help="Setup wizard — configure Agent Harness.")(
-    init.init_command
-)
+app.command(name="init", help="Setup wizard — configure Agent Harness.")(init.init_command)
 app.command(name="start", help="Start the Agent Harness bot.")(start.start_command)
 app.command(name="stop", help="Stop the running bot.")(start.stop_command)
 app.command(name="status", help="Show bot status.")(start.status_command)
-app.command(name="doctor", help="Health check — verify all components.")(
-    doctor.doctor_command
-)
+app.command(name="doctor", help="Health check — verify all components.")(doctor.doctor_command)
 
 # Register subcommand groups
 app.add_typer(config_cmd.app, name="config", help="Manage configuration.")
 app.add_typer(skills.app, name="skills", help="Manage skills.")
+
+# Service management commands
+app.command(
+    name="install-service",
+    help="Install Agent Harness as a system service (launchd/systemd).",
+)(service.install_service_command)
+app.command(
+    name="uninstall-service",
+    help="Uninstall the Agent Harness system service.",
+)(service.uninstall_service_command)
 
 
 if __name__ == "__main__":

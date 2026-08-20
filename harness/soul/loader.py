@@ -121,9 +121,7 @@ Valores:
         # First check if it matches any dangerous pattern
         for pattern in self.require_confirmation_patterns:
             if self._matches_pattern(command, pattern):
-                log.debug(
-                    "command_requires_confirmation", command=command, pattern=pattern
-                )
+                log.debug("command_requires_confirmation", command=command, pattern=pattern)
                 return True
 
         return False
@@ -216,9 +214,7 @@ def _parse_markdown_soul(content: str) -> dict[str, Any]:
     # Split frontmatter and body
     parts = content.split("---", 2)
     if len(parts) < 3:
-        raise ValueError(
-            "Invalid frontmatter format. Expected: ---\\nYAML\\n---\\nBody"
-        )
+        raise ValueError("Invalid frontmatter format. Expected: ---\\nYAML\\n---\\nBody")
 
     frontmatter_yaml = parts[1].strip()
     body = parts[2].strip()

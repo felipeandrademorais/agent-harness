@@ -65,9 +65,7 @@ def _run_wizard(
         console.print()
         migrate = typer.confirm("Migrate these to ~/.agent-harness/?", default=True)
 
-    env_values = (
-        load_env_file(existing_configs["env"]) if "env" in existing_configs else {}
-    )
+    env_values = load_env_file(existing_configs["env"]) if "env" in existing_configs else {}
     telegram_token, user_ids = prompt_telegram(env_values)
     db_url = prompt_database(env_values)
     ollama_url, ollama_model = prompt_ollama(env_values)
@@ -79,9 +77,7 @@ def _run_wizard(
         database={"url": db_url},
         llm={"model": ollama_model, "api_base": ollama_url},
     )
-    save_wizard_artifacts(
-        manager, config, migrate=migrate, existing_configs=existing_configs
-    )
+    save_wizard_artifacts(manager, config, migrate=migrate, existing_configs=existing_configs)
     print_setup_complete(manager.config_dir)
     return config
 
@@ -91,16 +87,12 @@ def _run_oneshot(opts: OneshotOptions) -> HarnessConfig | None:
     manager = ConfigManager()
 
     if manager.exists() and not opts.force:
-        console.print(
-            "[red]Configuration already exists. Use --force to overwrite.[/red]"
-        )
+        console.print("[red]Configuration already exists. Use --force to overwrite.[/red]")
         raise typer.Exit(1)
 
     allowed_ids: list[int] = []
     if opts.user_ids:
-        allowed_ids = [
-            int(x.strip()) for x in opts.user_ids.split(",") if x.strip().isdigit()
-        ]
+        allowed_ids = [int(x.strip()) for x in opts.user_ids.split(",") if x.strip().isdigit()]
 
     config = HarnessConfig(
         env=opts.env,

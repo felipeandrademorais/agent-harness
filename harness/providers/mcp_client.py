@@ -62,9 +62,7 @@ class MCPClient:
         server_url: str | None = None,
     ) -> None:
         if not server_command and not server_url:
-            raise ValueError(
-                "Provide either server_command (stdio) or server_url (SSE)."
-            )
+            raise ValueError("Provide either server_command (stdio) or server_url (SSE).")
 
         self._server_command = server_command
         self._server_url = server_url
@@ -150,9 +148,7 @@ class MCPClient:
             result = await self._session.call_tool(name, arguments)
         except BOUNDARY_ERRORS as exc:
             log.error("mcp_tool_call_failed", tool=name, error=str(exc))
-            return MCPToolResult(
-                content=f"Error calling '{name}': {exc}", is_error=True
-            )
+            return MCPToolResult(content=f"Error calling '{name}': {exc}", is_error=True)
 
         latency_ms = int((time.monotonic() - t0) * 1000)
 
@@ -167,9 +163,7 @@ class MCPClient:
         content = "\n".join(content_parts) if content_parts else "(no output)"
         is_error = bool(result.isError)
 
-        log.debug(
-            "mcp_tool_called", tool=name, latency_ms=latency_ms, is_error=is_error
-        )
+        log.debug("mcp_tool_called", tool=name, latency_ms=latency_ms, is_error=is_error)
         return MCPToolResult(content=content, is_error=is_error)
 
     def as_llm_tools(self, tools: list[MCPTool]) -> list[dict[str, Any]]:
